@@ -1,0 +1,13 @@
+{
+	"access": {
+		"userOid":"",
+		"plant": {	
+			"name": "",
+			"hasAccess": true
+		},
+		"Supplier": false,
+		"EngineeringLeadAndDiscipline": true,
+		"MCLeadAndDiscipline": true,
+		"Operation": true
+	}
+}

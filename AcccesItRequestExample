@@ -1,0 +1,13 @@
+{
+	"access": {
+		"userOid":"8eed7b20-13f5-41d6-9b82-add95fdd6860",
+		"plant" {	
+			"name": "Åsgard", 
+			"hasAccess": true
+		},
+		"Supplier": ?,
+		"EngineeringLeadAndDiscipline": ?,
+		"MCLeadAndDiscipline": ?,
+		"Operation": ?
+	}
+}
