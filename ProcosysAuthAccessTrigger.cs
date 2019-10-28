@@ -31,10 +31,10 @@ namespace AccessTriggerFunction
             log.LogInformation("C# HTTP trigger function processed a request.");
             dynamic data = JsonConvert.DeserializeObject(requestBody);
          
-            var oid = data?.access?.UserOid;
-            var plantId = data?.access?.plant?.plantId;
+            var oid = data?.userOid;
+            var plantId = data?.plantId;
 
-            bool? plantAccess = data?.access?.plant?.hasAccess;
+            bool? plantAccess = data?.hasAccess;
             
             if(oid == null)
             {
