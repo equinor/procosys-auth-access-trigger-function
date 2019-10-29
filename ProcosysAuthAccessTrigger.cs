@@ -15,43 +15,38 @@ namespace AccessTriggerFunction
     public static class ProcosysAuthAccessTrigger
     {
         static IQueueClient queueClient;
+        private static ILogger _logger;
 
         [FunctionName("ProcosysAuthAccessTrigger")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "get", "post", Route = null)] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             ILogger log)
         {
            var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
            var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
+           _logger = log;
 
            queueClient = new QueueClient(serviceBusConnectionString, queueName);
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
-
-            log.LogInformation("C# HTTP trigger function processed a request.");
+            _logger.LogInformation("C# HTTP trigger function processed a request.");
             dynamic data = JsonConvert.DeserializeObject(requestBody);
-         
-            var oid = data?.userOid;
-            var plantId = data?.plantId;
 
-            bool? plantAccess = data?.hasAccess;
-            
-            if(oid == null)
+
+            var validation =  ValidateInput(data);
+            if(!validation.isValid)
             {
-                return new BadRequestObjectResult("Please pass a oid in the request body");
+                _logger.LogInformation($"Returning Bad request with message: {validation.message}");
+                return new BadRequestObjectResult(validation.message);
             }
 
-            if(plantAccess == null || plantId == null)
-            {
-                return new BadRequestObjectResult("Please pass a plant information in the request body");
-            }
-             var returnMessage = plantAccess == true ? $"user with oid:  {oid}, is added to {plantId}" 
-                : $"user with oid:  {oid}, is removed from {plantId}";
+             var returnMessage =  data.hasAccess == true ? $"user with oid:  {data.userOid}, is added to {data.plantId}" 
+                : $"user with oid: {data.userOid}, is removed from {data.plantId}";
           
+            _logger.LogInformation($"Sending request to queue: {requestBody}");
             await SendMessagesAsync(requestBody);
         
-            return  (ActionResult)new OkObjectResult(returnMessage);
-                
+            return new OkObjectResult(returnMessage);
         }
 
         static async Task SendMessagesAsync(string messageBody)
@@ -59,15 +54,37 @@ namespace AccessTriggerFunction
             try
             {
                 var message = new Message(Encoding.UTF8.GetBytes(messageBody));
-                    // Send the message to the queue
-                    Console.WriteLine($"Sending message: {messageBody}");
+                    _logger.LogInformation($"Sending message: {messageBody}");
                     await queueClient.SendAsync(message);
                 
             }
             catch (Exception exception)
             {
-                Console.WriteLine($"{DateTime.Now} :: Exception: {exception.Message}");
+                _logger.LogError($"{DateTime.Now} :: Exception: {exception.Message}");
             }
+        }
+
+        private static (bool isValid, string message) ValidateInput(dynamic data)
+        {
+            var oid = data.userOid;
+            var plantId = data.plantId;
+            bool? plantAccess = data.hasAccess;
+            
+            if(string.IsNullOrWhiteSpace(oid))
+            {
+                return(false,"User identidier, userOid is missing from requestbody");
+            }
+
+            if(string.IsNullOrWhiteSpace(plantId))
+            {
+                return (false,"Plant identifier, plantId is missing from requestbody");
+            }
+
+            if(plantAccess == null)
+            {
+                return (false,"Plant access modifer, hasAccess is missing from requestbody");
+            }
+            return (true, null);
         }
     }
 }
