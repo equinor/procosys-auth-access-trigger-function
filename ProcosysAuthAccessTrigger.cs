@@ -33,11 +33,11 @@ namespace AccessTriggerFunction
             dynamic data = JsonConvert.DeserializeObject(requestBody);
 
 
-            var validation =  ValidateInput(data);
-            if(!validation.isValid)
+            var validation = ValidateInput(data);
+            if(!validation.Item1)
             {
-                _logger.LogInformation($"Returning Bad request with message: {validation.message}");
-                return new BadRequestObjectResult(validation.message);
+                _logger.LogInformation($"Returning Bad request with message: {validation.Item2}");
+                return new BadRequestObjectResult(validation.Item2);
             }
 
              var returnMessage =  data.hasAccess == true ? $"user with oid:  {data.userOid}, is added to {data.plantId}" 
@@ -60,14 +60,15 @@ namespace AccessTriggerFunction
             }
             catch (Exception exception)
             {
+                Console.WriteLine($"{DateTime.Now} :: Exception: {exception.Message}");
                 _logger.LogError($"{DateTime.Now} :: Exception: {exception.Message}");
             }
         }
 
         private static (bool isValid, string message) ValidateInput(dynamic data)
         {
-            var oid = data.userOid;
-            var plantId = data.plantId;
+            string oid = data.userOid;
+            string plantId = data.plantId;
             bool? plantAccess = data.hasAccess;
             
             if(string.IsNullOrWhiteSpace(oid))
