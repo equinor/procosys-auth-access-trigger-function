@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 using Microsoft.Azure.ServiceBus;
 using System.Text;
 
-namespace AccessTriggerFunction
+namespace AccessFunctions
 {
     public static class ProcosysAuthAccessTrigger
     {
