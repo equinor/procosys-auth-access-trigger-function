@@ -1,63 +1,55 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using System.Text;
+using Microsoft.Graph;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
+using System;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
 
 namespace AccessFunctions
 {
     public static class ProcosysGroupSubscriber
     {
-        private const string Cron = "123";
+        private const string Cron = "0 2 * * *"; //Every night at 2am //TODO add to env variable
 
-         [FunctionName("ProcosysGroupSubscriber")]
+        [FunctionName("ProcosysGroupSubscriber")]
         public static async Task Run(
-            [TimerTrigger("c")]
-            string graphToken,
-            ILogger log)
+           [TimerTrigger(Cron)]TimerInfo myTimer,
+           ILogger log)
         {
-
-
-    //TODO https://docs.microsoft.com/en-us/graph/tutorials/dotnet-core?tutorial-step=4
-            //save secrets
-            //send request with subscription to graph service
-            var authority = "abc";
-            var graphUrl = "abc";
-            var clientId = "abc";
-            var clientSecret = "bc";
-            //await GraphService
+            var authority = Environment.GetEnvironmentVariable("Azure:Authority");
+            var graphUrl = Environment.GetEnvironmentVariable("GraphUrl");
+            var clientId = Environment.GetEnvironmentVariable("Azure:ClientId");
+            var clientSecret = Environment.GetEnvironmentVariable("Azure:ClientSecret");
             var authContext = new AuthenticationContext(authority);
+
             ClientCredential clientCred = new ClientCredential(clientId, clientSecret);
             var authenticationResult = await authContext.AcquireTokenAsync(graphUrl, clientCred);
+            var accessToken = authenticationResult.AccessToken;
+        
+                var graphClient = new GraphServiceClient(
+                     new DelegateAuthenticationProvider(
+                        (requestMessage) =>
+                        {
+                         requestMessage.Headers.Authorization = new AuthenticationHeaderValue("bearer", accessToken);
+                        return Task.FromResult(0);
+                        }));
+                var subscription = new Subscription
+                {
+                    ChangeType = "updated",
+                    NotificationUrl = "https://pcs-auth-access-function-dev.azurewebsites.net/api/ProcosysAuthAccessTrigger",
+                    Resource = "groups", 
+                    ExpirationDateTime = DateTimeOffset.UtcNow.AddDays(3),
+                    ClientState = "sicktrickpony"
+                };
 
-            //call graph api
-/*
-            GraphServiceClient graphClient = new GraphServiceClient( authProvider );
-
-var subscription = new Subscription
-{
-	ChangeType = "created,updated",
-	NotificationUrl = "https://webhook.azurewebsites.net/api/send/myNotifyClient",
-	Resource = "me/mailFolders('Inbox')/messages",
-	ExpirationDateTime = DateTimeOffset.Parse("2016-11-20T18:23:45.9356913Z"),
-	ClientState = "secretClientValue"
-};
-
-await graphClient.Subscriptions
-	.Request()
-	.AddAsync(subscription);
-
-
+                var request = graphClient.Subscriptions.Request();
+                await request.AddAsync(subscription);
         }
 
 
 
     }
-*/
-    
+
+
 }

@@ -1,91 +1,98 @@
-using System;
-using System.IO;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Microsoft.Azure.ServiceBus;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace AccessFunctions
 {
     public static class ProcosysAuthAccessTrigger
     {
-        static IQueueClient queueClient;
-        private static ILogger _logger;
+       private static IQueueClient _queueClient;
+       private static ILogger _logger;
 
         [FunctionName("ProcosysAuthAccessTrigger")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest req,
             ILogger log)
         {
-           var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
-           var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
-           _logger = log;
-
-           queueClient = new QueueClient(serviceBusConnectionString, queueName);
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-
-            _logger.LogInformation("C# HTTP trigger function processed a request.");
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-
-
-            var validation = ValidateInput(data);
-            if(!validation.Item1)
+            _logger = log;
+            
+            _logger.LogInformation($"Incomming request {req.Query.ToString()}");
+            string token = req.GetQueryParameterDictionary().FirstOrDefault(
+                q => string.Compare(q.Key, "validationToken", true) == 0).Value;
+            if (!string.IsNullOrWhiteSpace(token))
             {
-                _logger.LogInformation($"Returning Bad request with message: {validation.Item2}");
-                return new BadRequestObjectResult(validation.Item2);
+                return new OkObjectResult(token);
             }
 
-             var returnMessage =  data.hasAccess == true ? $"user with oid:  {data.userOid}, is added to {data.plantId}" 
-                : $"user with oid: {data.userOid}, is removed from {data.plantId}";
-          
-            _logger.LogInformation($"Sending request to queue: {requestBody}");
-            await SendMessagesAsync(requestBody);
-        
-            return new OkObjectResult(returnMessage);
+            var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
+            var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
+            _queueClient = new QueueClient(serviceBusConnectionString, queueName);
+       
+                var notifications = new List<string>();
+                using (var inputStream = new StreamReader(req.Body))
+                {
+                    JObject jsonObject = JObject.Parse(inputStream.ReadToEnd());
+                    if (jsonObject != null)
+                    {
+                        // Notifications are sent in a 'value' array. The array might contain multiple notifications for events that are
+                        // registered for the same notification endpoint, and that occur within a short timespan.
+                        JArray value = JArray.Parse(jsonObject["value"].ToString());
+                        foreach (var notification in value)
+                        {
+                            Notification current = JsonConvert.DeserializeObject<Notification>(notification.ToString());
+
+                            // Check client state to verify the message is from Microsoft Graph.
+                            var hasValidClientState = current.ClientState.Equals(Environment.GetEnvironmentVariable("SubscriptionClientState"));
+
+                            if (hasValidClientState && current.ResourceData.Members != null)
+                            {
+                                var json = JObject.FromObject(new
+                                {
+                                    groupId = current.ResourceData.Id,
+                                    users = current.ResourceData.Members
+                                      .Select(m => new { id = m.Id, remove = "deleted".Equals(m.Removed) })
+                                }).ToString();
+                                notifications.Add(json);
+                            }
+                        }
+                    }
+                    if (notifications.Count > 0)
+                    {
+                        foreach(string notification in notifications)
+                        {
+                            _logger.LogInformation($"Sending request to queue: {notification}");
+                            await SendMessagesAsync(notification);
+                        }
+                    }
+                    return new AcceptedResult();
+                }
         }
 
-        static async Task SendMessagesAsync(string messageBody)
+        private static async Task SendMessagesAsync(string messageBody)
         {
             try
             {
                 var message = new Message(Encoding.UTF8.GetBytes(messageBody));
-                    _logger.LogInformation($"Sending message: {messageBody}");
-                    await queueClient.SendAsync(message);
-                
+                _logger.LogInformation($"Sending message: {messageBody}");
+                await _queueClient.SendAsync(message);
+
             }
             catch (Exception exception)
             {
                 Console.WriteLine($"{DateTime.Now} :: Exception: {exception.Message}");
                 _logger.LogError($"{DateTime.Now} :: Exception: {exception.Message}");
             }
-        }
-
-        private static (bool isValid, string message) ValidateInput(dynamic data)
-        {
-            string oid = data.userOid;
-            string plantId = data.plantId;
-            bool? plantAccess = data.hasAccess;
-            
-            if(string.IsNullOrWhiteSpace(oid))
-            {
-                return(false,"User identidier, userOid is missing from requestbody");
-            }
-
-            if(string.IsNullOrWhiteSpace(plantId))
-            {
-                return (false,"Plant identifier, plantId is missing from requestbody");
-            }
-
-            if(plantAccess == null)
-            {
-                return (false,"Plant access modifer, hasAccess is missing from requestbody");
-            }
-            return (true, null);
         }
     }
 }
