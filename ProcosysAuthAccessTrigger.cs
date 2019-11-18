@@ -51,19 +51,24 @@ namespace AccessFunctions
                         foreach (var notification in value)
                         {
                             Notification current = JsonConvert.DeserializeObject<Notification>(notification.ToString());
+                        
+                        // Check client state to verify the message is from Microsoft Graph.
+                        var hasValidClientState = current.ClientState.Equals(Environment.GetEnvironmentVariable("SubscriptionClientState"));
+                        if (!hasValidClientState)
+                        {
+                            _logger.LogInformation($"ClientState wrong, the clientstate used was: {current.ClientState}");
+                        }
 
-                            // Check client state to verify the message is from Microsoft Graph.
-                            var hasValidClientState = current.ClientState.Equals(Environment.GetEnvironmentVariable("SubscriptionClientState"));
 
                             if (hasValidClientState && current.ResourceData.Members != null)
                             {
                                 var json = JObject.FromObject(new
                                 {
                                     groupId = current.ResourceData.Id,
-                                    users = current.ResourceData.Members
+                                    members = current.ResourceData.Members
                                       .Select(m => new { id = m.Id, remove = "deleted".Equals(m.Removed) })
                                 }).ToString();
-                                notifications.Add(json);
+                            notifications.Add(json);
                             }
                         }
                     }
@@ -71,10 +76,10 @@ namespace AccessFunctions
                     {
                         foreach(string notification in notifications)
                         {
-                            _logger.LogInformation($"Sending request to queue: {notification}");
                             await SendMessagesAsync(notification);
                         }
                     }
+                    //always return accepted
                     return new AcceptedResult();
                 }
         }
