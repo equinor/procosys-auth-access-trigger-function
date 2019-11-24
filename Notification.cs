@@ -33,7 +33,6 @@ namespace AccessFunctions
 
     public class ResourceData
     {
-
         // The ID of the resource.
         [JsonProperty(PropertyName = "id")]
         public string Id { get; set; }
@@ -41,8 +40,6 @@ namespace AccessFunctions
         // The OData etag property.
         [JsonProperty(PropertyName = "members@delta")]
         public IEnumerable<Members> Members { get; set; }
-
-  
     }
 
 
