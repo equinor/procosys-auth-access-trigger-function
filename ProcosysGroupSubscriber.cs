@@ -5,26 +5,27 @@ using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using System;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using static System.Environment;
 
 namespace AccessFunctions
 {
     public static class ProcosysGroupSubscriber
     {
-        private const string Cron = "0 2 * * *"; //Every night at 2am //TODO add to env variable
+        private const string Cron = "* * * * *"; //Every night at 2am //TODO add to env variable
         private const string Resource = "groups";
         private const string ChangeType = "updated";
-        private const int SubscriptionTimeToLive = 3;
 
         [FunctionName("ProcosysGroupSubscriber")]
         public static async Task Run([TimerTrigger(Cron)]TimerInfo myTimer,
            ILogger log)
         {
-            var authority = Environment.GetEnvironmentVariable("AzureAuthority");
-            var graphUrl = Environment.GetEnvironmentVariable("GraphUrl");
-            var clientId = Environment.GetEnvironmentVariable("AzureClientId");
-            var clientSecret = Environment.GetEnvironmentVariable("AzureClientSecret");
-            var clientState = Environment.GetEnvironmentVariable("SubscriptionClientState");
-            var notificationUrl = Environment.GetEnvironmentVariable("NotificationUrl");
+            double subScriptionTime = double.Parse(GetEnvironmentVariable("SubscriptionTimeToLive"));
+            var authority = GetEnvironmentVariable("AzureAuthority");
+            var graphUrl = GetEnvironmentVariable("GraphUrl");
+            var clientId = GetEnvironmentVariable("AzureClientId");
+            var clientSecret = GetEnvironmentVariable("AzureClientSecret");
+            var clientState = GetEnvironmentVariable("SubscriptionClientState");
+            var notificationUrl = GetEnvironmentVariable("NotificationUrl");
             var authContext = new AuthenticationContext(authority);
 
             ClientCredential clientCred = new ClientCredential(clientId, clientSecret);
@@ -43,7 +44,7 @@ namespace AccessFunctions
                 ChangeType = ChangeType,
                 NotificationUrl = notificationUrl,
                 Resource = Resource,
-                ExpirationDateTime = DateTimeOffset.UtcNow.AddDays(SubscriptionTimeToLive),
+                ExpirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subScriptionTime),
                 ClientState = clientState
             };
 
