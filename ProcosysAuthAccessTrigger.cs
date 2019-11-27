@@ -17,8 +17,8 @@ namespace AccessFunctions
 {
     public static class ProcosysAuthAccessTrigger
     {
-       private static IQueueClient _queueClient;
-       private static ILogger _logger;
+        private static IQueueClient _queueClient;
+        private static ILogger _logger;
 
         [FunctionName("ProcosysAuthAccessTrigger")]
         public static async Task<IActionResult> Run(
@@ -26,8 +26,8 @@ namespace AccessFunctions
             ILogger log)
         {
             _logger = log;
-            
-            _logger.LogInformation($"Incomming request {req.Query.ToString()}");
+
+            _logger.LogInformation($"Incomming request {req.Query}");
             string token = req.GetQueryParameterDictionary().FirstOrDefault(
                 q => string.Compare(q.Key, "validationToken", true) == 0).Value;
             if (!string.IsNullOrWhiteSpace(token))
@@ -38,20 +38,20 @@ namespace AccessFunctions
             var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
             var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
             _queueClient = new QueueClient(serviceBusConnectionString, queueName);
-       
-                var notifications = new List<string>();
-                using (var inputStream = new StreamReader(req.Body))
+
+            var notifications = new List<string>();
+            using (var inputStream = new StreamReader(req.Body))
+            {
+                JObject jsonObject = JObject.Parse(inputStream.ReadToEnd());
+                if (jsonObject != null)
                 {
-                    JObject jsonObject = JObject.Parse(inputStream.ReadToEnd());
-                    if (jsonObject != null)
+                    // Notifications are sent in a 'value' array. The array might contain multiple notifications for events that are
+                    // registered for the same notification endpoint, and that occur within a short timespan.
+                    JArray value = JArray.Parse(jsonObject["value"].ToString());
+                    foreach (var notification in value)
                     {
-                        // Notifications are sent in a 'value' array. The array might contain multiple notifications for events that are
-                        // registered for the same notification endpoint, and that occur within a short timespan.
-                        JArray value = JArray.Parse(jsonObject["value"].ToString());
-                        foreach (var notification in value)
-                        {
-                            Notification current = JsonConvert.DeserializeObject<Notification>(notification.ToString());
-                        
+                        Notification current = JsonConvert.DeserializeObject<Notification>(notification.ToString());
+
                         // Check client state to verify the message is from Microsoft Graph.
                         var hasValidClientState = current.ClientState.Equals(Environment.GetEnvironmentVariable("SubscriptionClientState"));
                         if (!hasValidClientState)
@@ -59,29 +59,28 @@ namespace AccessFunctions
                             _logger.LogInformation($"ClientState wrong, the clientstate used was: {current.ClientState}");
                         }
 
-
-                            if (hasValidClientState && current.ResourceData.Members != null)
-                            {
-                                var json = JObject.FromObject(new
-                                {
-                                    groupId = current.ResourceData.Id,
-                                    members = current.ResourceData.Members
-                                      .Select(m => new { id = m.Id, remove = "deleted".Equals(m.Removed) })
-                                }).ToString();
-                            notifications.Add(json);
-                            }
-                        }
-                    }
-                    if (notifications.Count > 0)
-                    {
-                        foreach(string notification in notifications)
+                        if (hasValidClientState && current.ResourceData.Members != null)
                         {
-                            await SendMessagesAsync(notification);
+                            var json = JObject.FromObject(new
+                            {
+                                groupId = current.ResourceData.Id,
+                                members = current.ResourceData.Members
+                                  .Select(m => new { id = m.Id, remove = "deleted".Equals(m.Removed) })
+                            }).ToString();
+                            notifications.Add(json);
                         }
                     }
-                    //always return accepted
-                    return new AcceptedResult();
                 }
+                if (notifications.Count > 0)
+                {
+                    foreach (string notification in notifications)
+                    {
+                        await SendMessagesAsync(notification);
+                    }
+                }
+                //always return accepted
+                return new AcceptedResult();
+            }
         }
 
         private static async Task SendMessagesAsync(string messageBody)

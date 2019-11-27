@@ -42,7 +42,6 @@ namespace AccessFunctions
         public IEnumerable<Members> Members { get; set; }
     }
 
-
     public class Members
     {
         [JsonProperty(PropertyName = "id")]
