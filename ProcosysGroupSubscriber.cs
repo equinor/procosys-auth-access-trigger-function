@@ -39,18 +39,37 @@ namespace AccessFunctions
                         requestMessage.Headers.Authorization = new AuthenticationHeaderValue("bearer", accessToken);
                         return Task.FromResult(0);
                     }));
-            var subscription = new Subscription
-            {
-                ChangeType = ChangeType,
-                NotificationUrl = notificationUrl,
-                Resource = Resource,
-                ExpirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subScriptionTime),
-                ClientState = clientState
-            };
 
-            var request = graphClient.Subscriptions.Request();
-            log.LogInformation($"Subscribing to microsoft graph with with request: {request}");
-            await request.AddAsync(subscription);
+            var subscriptions = await graphClient.Subscriptions
+                .Request()
+                .GetAsync();
+
+            if(subscriptions.Count > 0 && notificationUrl.Equals(subscriptions[0].NotificationUrl))
+            {
+                var subscription = new Subscription
+                {
+                    ExpirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subScriptionTime)
+                };
+                var updateId = subscriptions[0].Id;
+                await graphClient.Subscriptions[updateId]
+                    .Request()
+                    .UpdateAsync(subscription);
+            }else
+            {
+                var subscription = new Subscription
+                {
+                    ChangeType = ChangeType,
+                    NotificationUrl = notificationUrl,
+                    Resource = Resource,
+                    ExpirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subScriptionTime),
+                    ClientState = clientState
+                };
+
+                var request = graphClient.Subscriptions.Request();
+
+                log.LogInformation($"Subscribing to microsoft graph with with request: {request}");
+                await request.AddAsync(subscription);
+            }
         }
     }
 }
