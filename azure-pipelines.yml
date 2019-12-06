@@ -39,7 +39,7 @@ stages:
       env: 'pcs-${{ variables.envName }}'
       envGroup: '${{ variables.envGroupName }}'
       dockerfilePath: ${{ variables.dockerfilePath }}
-      buildContext: '$(Build.SourcesDirectory)/src'
+      buildContext: '$(Build.SourcesDirectory)'
       repository: ${{ variables.repositoryName }}
       dockerRegistryServiceConnection: $(dockerRegistryServiceConnectionName)
 
