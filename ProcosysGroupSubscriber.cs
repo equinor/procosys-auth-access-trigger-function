@@ -16,6 +16,7 @@ namespace AccessFunctions
         private const string ChangeType = "updated";
 
         [FunctionName("ProcosysGroupSubscriber")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Redundancy", "RCS1163:Unused parameter.")]
         public static async Task Run([TimerTrigger(Cron)]TimerInfo myTimer,
            ILogger log)
         {
@@ -44,7 +45,7 @@ namespace AccessFunctions
                 .Request()
                 .GetAsync();
 
-            if(subscriptions.Count > 0 && notificationUrl.Equals(subscriptions[0].NotificationUrl))
+            if (subscriptions.Count > 0 && notificationUrl.Equals(subscriptions[0].NotificationUrl))
             {
                 var subscription = new Subscription
                 {
@@ -54,7 +55,8 @@ namespace AccessFunctions
                 await graphClient.Subscriptions[updateId]
                     .Request()
                     .UpdateAsync(subscription);
-            }else
+            }
+            else
             {
                 var subscription = new Subscription
                 {
