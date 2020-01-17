@@ -5,6 +5,7 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -32,6 +33,12 @@ namespace AccessFunctions
             InitializeQueueClient();
 
             var notifications = AccessTriggerHelper.ExtractJsonNotifications(request, _logger);
+
+            if (notifications.Count == 0)
+            {
+                _logger.LogInformation($"the request{request.Query} didn't contain any relevant information");
+            }
+
             notifications.ForEach(async n => await SendMessagesAsync(n));
 
             //Allways return accepted, or notifications gets turned off
