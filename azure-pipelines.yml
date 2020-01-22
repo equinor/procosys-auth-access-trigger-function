@@ -2,6 +2,7 @@ trigger:
   branches:
     include:
       - master
+      - dev
 
 resources:
    repositories:
@@ -14,14 +15,37 @@ resources:
 # Global variables for the pipeline
 variables:
  - template: templates/variables/procosys-global-variables.yml@templates
-
  - name: 'repositoryName'
    value: 'aad-sync/functions'
+ - name: 'buildConfiguration'
+   value: 'Release' 
+ - name: 'vmImageName'
+   value: 'ubuntu-latest'
 
 stages:
+- stage: "CI"
+  displayName: 'Build and Test'
+  jobs:
+  - job:
+    pool:
+      vmImage: $(vmImageName)
+
+    steps:
+    - script: dotnet build --configuration $(buildConfiguration)
+      displayName: 'dotnet build $(buildConfiguration)'
+    
+    - task: DotNetCoreCLI@2
+      displayName: 'dotnet test $(buildConfiguration)'
+      inputs:
+        command: test
+        projects: '**/*[Tt]ests/*.csproj'
+        arguments: '--configuration $(buildConfiguration)'
+
 # common stage. Docker build, tag and push
 - stage: common
   displayName: 'Common'
+  dependsOn: 'CI'
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
   variables:
     envName: 'common'
     envRg: '${{ variables.envRgName }}'
@@ -34,8 +58,6 @@ stages:
   - template: /templates/pipelines/dockerbuild.yml@templates
     parameters:
       deploymentName: 'docker_build_push'
-      dependsOn: ''
-      condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
       env: 'pcs-${{ variables.envName }}'
       envGroup: '${{ variables.envGroupName }}'
       dockerfilePath: ${{ variables.dockerfilePath }}
