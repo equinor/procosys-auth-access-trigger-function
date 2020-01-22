@@ -16,7 +16,7 @@ namespace AccessFunctions
         private const string Resource = "groups";
         private const string ChangeType = "updated";
 
-        [Disable("FUNCTION_DISABLED")]
+        [Disable]
         [FunctionName("ProcosysGroupSubscriber")]
         [SuppressMessage("Redundancy", "RCS1163:Unused parameter.")]
         public static async Task Run([TimerTrigger(Cron)]TimerInfo myTimer,
