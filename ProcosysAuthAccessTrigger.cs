@@ -5,7 +5,6 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -16,6 +15,7 @@ namespace AccessFunctions
         private static IQueueClient _queueClient;
         private static ILogger _logger;
 
+        #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
         [FunctionName("ProcosysAuthAccessTrigger")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest request,
@@ -36,7 +36,7 @@ namespace AccessFunctions
 
             if (notifications.Count == 0)
             {
-                _logger.LogInformation($"the request{request.Query} didn't contain any relevant information");
+                _logger.LogInformation($"The request{request.Query} didn't contain any relevant information");
             }
 
             notifications.ForEach(async n => await SendMessagesAsync(n));
