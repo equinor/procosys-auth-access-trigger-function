@@ -108,7 +108,7 @@ namespace AccessFunctions.Tests
 
         private static void SetUpEnvironmentalVariables()
         {
-            using (var file = File.OpenText("local.settings.json"))
+            using (var file = File.OpenText("test.settings.json"))
             {
                 var reader = new JsonTextReader(file);
                 var jObject = JObject.Load(reader);
