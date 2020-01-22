@@ -3,9 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29424.173
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AccessFunctions", "AccessFunctions.csproj", "{08710607-6470-4BC7-9165-44AE7F9B76DF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AccessFunctions", "src\AccessFunctions\AccessFunctions.csproj", "{08710607-6470-4BC7-9165-44AE7F9B76DF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AccessFunctionsTests", "..\AccessFunctionsTests\AccessFunctionsTests.csproj", "{F42928EC-E784-49F3-8212-A885AD93FD86}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AccessFunctionsTests", "tests\AccessFunctionsTests\AccessFunctionsTests.csproj", "{F42928EC-E784-49F3-8212-A885AD93FD86}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{ADD5BFDB-EC17-4D83-8227-B95D1FD77030}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{4D616465-F444-46B8-A347-9D5AB8E288E0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,6 +28,10 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{08710607-6470-4BC7-9165-44AE7F9B76DF} = {ADD5BFDB-EC17-4D83-8227-B95D1FD77030}
+		{F42928EC-E784-49F3-8212-A885AD93FD86} = {4D616465-F444-46B8-A347-9D5AB8E288E0}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {C8F26999-1883-447D-B1EB-81BC396F690A}
