@@ -35,6 +35,7 @@ stages:
     parameters:
       deploymentName: 'docker_build_push'
       dependsOn: ''
+      condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
       env: 'pcs-${{ variables.envName }}'
       envGroup: '${{ variables.envGroupName }}'
       dockerfilePath: ${{ variables.dockerfilePath }}
