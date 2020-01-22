@@ -6,17 +6,19 @@ using System;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using static System.Environment;
+using System.Diagnostics.CodeAnalysis;
 
 namespace AccessFunctions
 {
     public static class ProcosysGroupSubscriber
     {
-        private const string Cron = "0 2 * * *"; //Every night at 2am //TODO add to env variable
+        private const string Cron = "0 2 * * *"; //Every night at 2am //TODO add to env variable if possible?
         private const string Resource = "groups";
         private const string ChangeType = "updated";
 
+        [Disable]
         [FunctionName("ProcosysGroupSubscriber")]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Redundancy", "RCS1163:Unused parameter.")]
+        [SuppressMessage("Redundancy", "RCS1163:Unused parameter.")]
         public static async Task Run([TimerTrigger(Cron)]TimerInfo myTimer,
            ILogger log)
         {
