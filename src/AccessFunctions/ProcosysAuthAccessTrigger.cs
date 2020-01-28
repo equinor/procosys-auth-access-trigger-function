@@ -30,9 +30,9 @@ namespace AccessFunctions
              * If the json request body contains a property "valueToken",
              * graph expects a 202 response, with the token as the response body. 
              **/
-            if (AccessTriggerHelper.GetToken(request) is string token)
+            if (AccessTriggerHelper.GetValueToken(request) is string valueToken)
             {
-                return new OkObjectResult(token);
+                return new OkObjectResult(valueToken);
             }
 
             AddMessagesToQueue(request);
