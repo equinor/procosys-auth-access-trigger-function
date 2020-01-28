@@ -12,7 +12,7 @@ namespace AccessFunctions
 {
     public static class ProcosysGroupSubscriber
     {
-        private const string Cron = "0 2 * * *"; //Every night at 2am //TODO add to env variable if possible?
+        private const string Cron = "0 2 * * *"; //Every night at 2am
         private const string Resource = "groups";
         private const string ChangeType = "updated";
 
@@ -27,16 +27,10 @@ namespace AccessFunctions
             _logger = logger;
 
             double subScriptionTime = double.Parse(GetEnvironmentVariable("SubscriptionTimeToLive"));
-            var authority = GetEnvironmentVariable("AzureAuthority");
-            var graphUrl = GetEnvironmentVariable("GraphUrl");
-            var clientId = GetEnvironmentVariable("AzureClientId");
-            var clientSecret = GetEnvironmentVariable("AzureClientSecret");
             var clientState = GetEnvironmentVariable("SubscriptionClientState");
             var notificationUrl = GetEnvironmentVariable("NotificationUrl");
-            var authContext = new AuthenticationContext(authority);
 
-            var graphClient = await SetUpGraphClient(graphUrl, clientId, clientSecret, authContext);
-
+            var graphClient = await SetUpGraphClient();
             var currentSubscriptions = await graphClient.Subscriptions
                 .Request()
                 .GetAsync();
@@ -49,22 +43,6 @@ namespace AccessFunctions
             {
                 await CreateSubscription(subScriptionTime, clientState, notificationUrl, graphClient);
             }
-        }
-
-        private static async Task<IGraphServiceClient> SetUpGraphClient(string graphUrl, string clientId, string clientSecret, AuthenticationContext authContext)
-        {
-            ClientCredential clientCred = new ClientCredential(clientId, clientSecret);
-            var authenticationResult = await authContext.AcquireTokenAsync(graphUrl, clientCred);
-            var accessToken = authenticationResult.AccessToken;
-
-            var graphClient = new GraphServiceClient(
-                 new DelegateAuthenticationProvider(
-                    (requestMessage) =>
-                    {
-                        requestMessage.Headers.Authorization = new AuthenticationHeaderValue("bearer", accessToken);
-                        return Task.FromResult(0);
-                    }));
-            return graphClient;
         }
 
         private static async Task CreateSubscription(double subScriptionTime, string clientState, string notificationUrl, IGraphServiceClient graphClient)
@@ -95,7 +73,29 @@ namespace AccessFunctions
                 .UpdateAsync(subscription);
         }
 
-        private static string GetSubscriptionToUpdate(string notificationUrl, IGraphServiceSubscriptionsCollectionPage subscriptions) 
+        private static string GetSubscriptionToUpdate(string notificationUrl, IGraphServiceSubscriptionsCollectionPage subscriptions)
             => subscriptions.Count > 0 && notificationUrl.Equals(subscriptions[0].NotificationUrl) ? subscriptions[0].Id : null;
+
+        private static async Task<IGraphServiceClient> SetUpGraphClient()
+        {
+            var authority = GetEnvironmentVariable("AzureAuthority");
+            var graphUrl = GetEnvironmentVariable("GraphUrl");
+            var clientId = GetEnvironmentVariable("AzureClientId");
+            var clientSecret = GetEnvironmentVariable("AzureClientSecret");
+            var authContext = new AuthenticationContext(authority);
+
+            ClientCredential clientCred = new ClientCredential(clientId, clientSecret);
+            var authenticationResult = await authContext.AcquireTokenAsync(graphUrl, clientCred);
+            var accessToken = authenticationResult.AccessToken;
+
+            var graphClient = new GraphServiceClient(
+                 new DelegateAuthenticationProvider(
+                    (requestMessage) =>
+                    {
+                        requestMessage.Headers.Authorization = new AuthenticationHeaderValue("bearer", accessToken);
+                        return Task.FromResult(0);
+                    }));
+            return graphClient;
+        }
     }
 }
