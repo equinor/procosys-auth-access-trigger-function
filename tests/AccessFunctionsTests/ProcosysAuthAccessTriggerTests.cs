@@ -28,7 +28,7 @@ namespace AccessFunctions.Tests
             var logger = new Mock<ILogger>();
 
             //Act
-            var result = AccessTriggerHelper.ExtractJsonNotifications(req, logger.Object);
+            var result = AccessTriggerHelper.ExtractNotifications(req, logger.Object);
 
             //Assert
             Assert.AreEqual(1, result.Count);
@@ -44,7 +44,7 @@ namespace AccessFunctions.Tests
             var logger = new Mock<ILogger>();
 
             //Act
-            var result = AccessTriggerHelper.ExtractJsonNotifications(req, logger.Object);
+            var result = AccessTriggerHelper.ExtractNotifications(req, logger.Object);
 
             //Assert
             Assert.AreEqual(0, result.Count);
