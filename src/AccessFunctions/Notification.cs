@@ -39,10 +39,10 @@ namespace AccessFunctions
 
         // The OData etag property.
         [JsonProperty(PropertyName = "members@delta")]
-        public IEnumerable<Members> Members { get; set; }
+        public IEnumerable<Member> Members { get; set; }
     }
 
-    public class Members
+    public class Member
     {
         [JsonProperty(PropertyName = "id")]
         public string Id { get; set; }
