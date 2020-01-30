@@ -52,7 +52,7 @@ stages:
     containerRegistry: '${{ variables.containerRegistryName }}'
     envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
     dockerRegistryServiceConnection: '$(dockerRegistryServiceConnectionName)'
-    dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+    dockerfilePath: '$(Build.SourcesDirectory)/src/AccessFunctions/Dockerfile'
 
   jobs:
   - template: /templates/pipelines/dockerbuild.yml@templates
