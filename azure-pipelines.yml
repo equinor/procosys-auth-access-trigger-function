@@ -15,7 +15,7 @@ resources:
 # Global variables for the pipeline
 variables:
  - template: templates/variables/procosys-global-variables.yml@templates
- - template: templates/variables/auth-access-variables@templates
+ - template: templates/variables/auth-access-variables.yml@templates
  - name: 'repositoryName'
    value: 'aad-sync/functions'
  - name: 'buildConfiguration'
