@@ -15,6 +15,7 @@ resources:
 # Global variables for the pipeline
 variables:
  - template: templates/variables/procosys-global-variables.yml@templates
+ - template: templates/variables/auth-access-variables@templates
  - name: 'repositoryName'
    value: 'aad-sync/functions'
  - name: 'buildConfiguration'
@@ -64,3 +65,26 @@ stages:
       buildContext: '$(Build.SourcesDirectory)'
       repository: ${{ variables.repositoryName }}
       dockerRegistryServiceConnection: $(dockerRegistryServiceConnectionName)
+
+- stage: dev
+  displayName: 'dev'
+  dependsOn: 'common'
+  condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/master')
+  variables:
+    envName: 'dev'
+    serviceConnection: '{{ variables.nonProdServiceConnection }}'
+    envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
+    envRg: 'pcs-auth-access-non-prod-rg'
+
+  jobs:
+  - template: /templates/pipelines/auth-access-function-release.yml
+    parameters:
+      dependsOn: ''
+      deploymentName: 'publish'
+      serviceConnection: '{{ variables.serviceConnection }}'
+      functionApp: '$(globalPrefix)-$(fullAppName)-dev-func'
+      envGroup: '${{ variables.envGroupName }}'
+      envRg: '${{ variables.envRg }}'
+      env: '${{ variables.envName }}'
+      repository: ${{ variables.repositoryName }}
+      containerRegistry: '${{ variables.containerRegistry }}'
