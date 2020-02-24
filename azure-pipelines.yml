@@ -24,52 +24,52 @@ variables:
    value: 'ubuntu-latest'
 
 stages:
-- stage: "CI"
-  displayName: 'Build and Test'
-  jobs:
-  - job:
-    pool:
-      vmImage: $(vmImageName)
+# - stage: "CI"
+#   displayName: 'Build and Test'
+#   jobs:
+#   - job:
+#     pool:
+#       vmImage: $(vmImageName)
 
-    steps:
-    - script: dotnet build --configuration $(buildConfiguration)
-      displayName: 'dotnet build $(buildConfiguration)'
+#     steps:
+#     - script: dotnet build --configuration $(buildConfiguration)
+#       displayName: 'dotnet build $(buildConfiguration)'
     
-    - task: DotNetCoreCLI@2
-      displayName: 'dotnet test $(buildConfiguration)'
-      inputs:
-        command: test
-        projects: '**/*[Tt]ests/*.csproj'
-        arguments: '--configuration $(buildConfiguration)'
+#     - task: DotNetCoreCLI@2
+#       displayName: 'dotnet test $(buildConfiguration)'
+#       inputs:
+#         command: test
+#         projects: '**/*[Tt]ests/*.csproj'
+#         arguments: '--configuration $(buildConfiguration)'
 
-# common stage. Docker build, tag and push
-- stage: common
-  displayName: 'Common'
-  dependsOn: 'CI'
-  condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
-  variables:
-    envName: 'common'
-    envRg: '${{ variables.envRgName }}'
-    containerRegistry: '${{ variables.containerRegistryName }}'
-    envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
-    dockerRegistryServiceConnection: '$(dockerRegistryServiceConnectionName)'
-    dockerfilePath: '$(Build.SourcesDirectory)/src/AccessFunctions/Dockerfile'
+# # common stage. Docker build, tag and push
+# - stage: common
+#   displayName: 'Common'
+#   dependsOn: 'CI'
+#   condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
+#   variables:
+#     envName: 'common'
+#     envRg: '${{ variables.envRgName }}'
+#     containerRegistry: '${{ variables.containerRegistryName }}'
+#     envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
+#     dockerRegistryServiceConnection: '$(dockerRegistryServiceConnectionName)'
+#     dockerfilePath: '$(Build.SourcesDirectory)/src/AccessFunctions/Dockerfile'
 
-  jobs:
-  - template: /templates/pipelines/dockerbuild.yml@templates
-    parameters:
-      deploymentName: 'docker_build_push'
-      env: 'pcs-${{ variables.envName }}'
-      envGroup: '${{ variables.envGroupName }}'
-      dockerfilePath: ${{ variables.dockerfilePath }}
-      buildContext: '$(Build.SourcesDirectory)'
-      repository: ${{ variables.repositoryName }}
-      dockerRegistryServiceConnection: $(dockerRegistryServiceConnectionName)
+#   jobs:
+#   - template: /templates/pipelines/dockerbuild.yml@templates
+#     parameters:
+#       deploymentName: 'docker_build_push'
+#       env: 'pcs-${{ variables.envName }}'
+#       envGroup: '${{ variables.envGroupName }}'
+#       dockerfilePath: ${{ variables.dockerfilePath }}
+#       buildContext: '$(Build.SourcesDirectory)'
+#       repository: ${{ variables.repositoryName }}
+#       dockerRegistryServiceConnection: $(dockerRegistryServiceConnectionName)
 
 - stage: dev
   displayName: 'dev'
-  dependsOn: 'common'
-  condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/master')
+  # dependsOn: 'common'
+  # condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/master')
   variables:
     envName: 'dev'
     serviceConnection: '{{ variables.nonProdServiceConnection }}'
