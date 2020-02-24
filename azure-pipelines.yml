@@ -88,3 +88,4 @@ stages:
       env: '${{ variables.envName }}'
       repository: ${{ variables.repositoryName }}
       containerRegistry: '${{ variables.containerRegistry }}'
+      keyVaultUrl: 'pcs-auth-non-prod-kv'
