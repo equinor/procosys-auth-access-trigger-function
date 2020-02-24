@@ -72,7 +72,7 @@ stages:
   # condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/master')
   variables:
     envName: 'dev'
-    serviceConnection: '{{ variables.nonProdServiceConnection }}'
+    serviceConnection: '${{ variables.nonProdServiceConnection }}'
     envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
     envRg: 'pcs-auth-access-non-prod-rg'
 
@@ -81,7 +81,7 @@ stages:
     parameters:
       dependsOn: ''
       deploymentName: 'publish'
-      serviceConnection: '{{ variables.serviceConnection }}'
+      serviceConnection: ${{ variables.serviceConnection }}
       functionApp: '$(globalPrefix)-$(fullAppName)-dev-func'
       envGroup: '${{ variables.envGroupName }}'
       envRg: '${{ variables.envRg }}'
