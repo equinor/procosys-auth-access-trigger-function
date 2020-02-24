@@ -77,7 +77,7 @@ stages:
     envRg: 'pcs-auth-access-non-prod-rg'
 
   jobs:
-  - template: /templates/pipelines/auth-access-function-release.yml
+  - template: /templates/pipelines/auth-access-function-release.yml@templates
     parameters:
       dependsOn: ''
       deploymentName: 'publish'
