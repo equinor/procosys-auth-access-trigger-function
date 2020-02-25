@@ -55,7 +55,7 @@ stages:
          eq(variables['Build.SourceBranch'], 'refs/heads/master'),
          eq(variables['Build.SourceBranch'], 'refs/heads/pipeline')
        )
-      )
+     )
    variables:
      envName: 'common'
      envRg: '${{ variables.envRgName }}'
