@@ -18,7 +18,6 @@ namespace AccessFunctions
 
         private static ILogger _logger;
 
-        [Disable]
         [FunctionName("ProcosysGroupSubscriber")]
         [SuppressMessage("Redundancy", "RCS1163:Unused parameter.")]
         public static async Task Run([TimerTrigger(Cron)]TimerInfo myTimer,
