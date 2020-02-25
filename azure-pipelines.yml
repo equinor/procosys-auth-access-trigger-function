@@ -72,22 +72,22 @@ stages:
        envGroup: '${{ variables.envGroupName }}'
        dockerfilePath: ${{ variables.dockerfilePath }}
        buildContext: '$(Build.SourcesDirectory)'
-      repository: ${{ variables.repositoryName }}
+       repository: ${{ variables.repositoryName }}
        dockerRegistryServiceConnection: $(dockerRegistryServiceConnectionName)
 
-- stage: dev
-  displayName: 'dev'
+ - stage: dev
+   displayName: 'dev'
    dependsOn: 'common'
    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/pipeline')
-  variables:
+   variables:
     envName: 'dev'
     serviceConnection: '${{ variables.nonProdServiceConnection }}'
     envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
     envRg: 'pcs-auth-access-non-prod-rg'
 
-  jobs:
-  - template: /templates/pipelines/auth-access-function-release.yml@templates
-    parameters:
+   jobs:
+   - template: /templates/pipelines/auth-access-function-release.yml@templates
+     parameters:
       dependsOn: ''
       deploymentName: 'publish'
       serviceConnection: ${{ variables.serviceConnection }}
