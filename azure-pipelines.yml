@@ -99,4 +99,4 @@ stages:
       containerRegistry: '${{ variables.containerRegistry }}'
       keyVaultUrl: 'pcs-auth-non-prod-kv'
       ServiceBusQueueName: 'updateuseraccessdev'
-      GroupSubscriberDisabled: false
+      #GroupSubscriberDisabled: false
