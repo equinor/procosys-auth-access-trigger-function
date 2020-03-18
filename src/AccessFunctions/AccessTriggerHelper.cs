@@ -76,7 +76,6 @@ namespace AccessFunctions
 
         private static bool HasValidClientState(Notification current)
         {
-
             // Check client state to verify the message is from Microsoft Graph.
             return current.ClientState.Equals(Environment.GetEnvironmentVariable(CLIENT_STATE));
         }

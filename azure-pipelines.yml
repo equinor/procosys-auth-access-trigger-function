@@ -15,6 +15,7 @@ resources:
 # Global variables for the pipeline
 variables:
  - template: templates/variables/procosys-global-variables.yml@templates
+ - template: templates/variables/auth-access-variables.yml@templates
  - name: 'repositoryName'
    value: 'aad-sync/functions'
  - name: 'buildConfiguration'
@@ -23,44 +24,105 @@ variables:
    value: 'ubuntu-latest'
 
 stages:
-- stage: "CI"
-  displayName: 'Build and Test'
-  jobs:
-  - job:
-    pool:
-      vmImage: $(vmImageName)
+ - stage: "CI"
+   displayName: 'Build and Test'
+   jobs:
+   - job:
+     pool:
+       vmImage: $(vmImageName)
 
-    steps:
-    - script: dotnet build --configuration $(buildConfiguration)
-      displayName: 'dotnet build $(buildConfiguration)'
+     steps:
+     - script: dotnet build --configuration $(buildConfiguration)
+       displayName: 'dotnet build $(buildConfiguration)'
     
-    - task: DotNetCoreCLI@2
-      displayName: 'dotnet test $(buildConfiguration)'
-      inputs:
-        command: test
-        projects: '**/*[Tt]ests/*.csproj'
-        arguments: '--configuration $(buildConfiguration)'
+     - task: DotNetCoreCLI@2
+       displayName: 'dotnet test $(buildConfiguration)'
+       inputs:
+         command: test
+         projects: '**/*[Tt]ests/*.csproj'
+         arguments: '--configuration $(buildConfiguration)'
 
-# common stage. Docker build, tag and push
-- stage: common
-  displayName: 'Common'
-  dependsOn: 'CI'
-  condition: eq(variables['Build.SourceBranch'], 'refs/heads/master')
-  variables:
-    envName: 'common'
-    envRg: '${{ variables.envRgName }}'
-    containerRegistry: '${{ variables.containerRegistryName }}'
+ # common stage. Docker build, tag and push
+ - stage: common
+   displayName: 'Common'
+   dependsOn: 'CI'
+   condition:  |
+     and
+     (
+       succeeded(),
+       or
+       ( 
+         eq(variables['Build.SourceBranch'], 'refs/heads/master'),
+         eq(variables['Build.SourceBranch'], 'refs/heads/dev')
+       )
+     )
+   variables:
+     envName: 'common'
+     envRg: '${{ variables.envRgName }}'
+     containerRegistry: '${{ variables.containerRegistryName }}'
+     envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
+     dockerRegistryServiceConnection: '$(dockerRegistryServiceConnectionName)'
+     dockerfilePath: '$(Build.SourcesDirectory)/src/AccessFunctions/Dockerfile'
+
+   jobs:
+   - template: /templates/pipelines/dockerbuild.yml@templates
+     parameters:
+       deploymentName: 'docker_build_push'
+       env: 'pcs-${{ variables.envName }}'
+       envGroup: '${{ variables.envGroupName }}'
+       dockerfilePath: ${{ variables.dockerfilePath }}
+       buildContext: '$(Build.SourcesDirectory)'
+       repository: ${{ variables.repositoryName }}
+       dockerRegistryServiceConnection: $(dockerRegistryServiceConnectionName)
+
+ - stage: dev
+   displayName: 'dev'
+   dependsOn: 'common'
+   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+   variables:
+    envName: 'dev'
+    serviceConnection: '${{ variables.nonProdServiceConnection }}'
     envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
-    dockerRegistryServiceConnection: '$(dockerRegistryServiceConnectionName)'
-    dockerfilePath: '$(Build.SourcesDirectory)/src/AccessFunctions/Dockerfile'
+    envRg: 'pcs-auth-access-non-prod-rg'
 
-  jobs:
-  - template: /templates/pipelines/dockerbuild.yml@templates
-    parameters:
-      deploymentName: 'docker_build_push'
-      env: 'pcs-${{ variables.envName }}'
+   jobs:
+   - template: /templates/pipelines/auth-access-function-release.yml@templates
+     parameters:
+      dependsOn: ''
+      deploymentName: 'publish'
+      serviceConnection: ${{ variables.serviceConnection }}
+      functionApp: '$(globalPrefix)-$(fullAppName)-dev-func'
       envGroup: '${{ variables.envGroupName }}'
-      dockerfilePath: ${{ variables.dockerfilePath }}
-      buildContext: '$(Build.SourcesDirectory)'
+      envRg: '${{ variables.envRg }}'
+      env: '${{ variables.envName }}'
       repository: ${{ variables.repositoryName }}
-      dockerRegistryServiceConnection: $(dockerRegistryServiceConnectionName)
+      containerRegistry: '${{ variables.containerRegistry }}'
+      keyVaultUrl: 'pcs-auth-non-prod-kv'
+      ServiceBusQueueName: 'pcs-auth-access-dev-queue'
+      GroupSubscriberDisabled: true
+
+ - stage: test
+   displayName: 'test'
+   dependsOn: 'common'
+   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+   variables:
+    envName: 'test'
+    serviceConnection: '${{ variables.nonProdServiceConnection }}'
+    envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
+    envRg: 'pcs-auth-access-non-prod-rg'
+
+   jobs:
+   - template: /templates/pipelines/auth-access-function-release.yml@templates
+     parameters:
+      dependsOn: ''
+      deploymentName: 'publish'
+      serviceConnection: ${{ variables.serviceConnection }}
+      functionApp: '$(globalPrefix)-$(fullAppName)-test-func'
+      envGroup: '${{ variables.envGroupName }}'
+      envRg: '${{ variables.envRg }}'
+      env: '${{ variables.envName }}'
+      repository: ${{ variables.repositoryName }}
+      containerRegistry: '${{ variables.containerRegistry }}'
+      keyVaultUrl: 'pcs-auth-non-prod-kv'
+      ServiceBusQueueName: 'pcs-auth-access-test-queue'
+      GroupSubscriberDisabled: true
