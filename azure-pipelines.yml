@@ -133,7 +133,7 @@ stages:
    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
    variables:
     envName: 'qp'
-    serviceConnection: '${{ variables.nonProdServiceConnection }}'
+    serviceConnection: '${{ variables.prodServiceConnection }}'
     envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
     envRg: 'pcs-auth-access-prod-rg'
 
