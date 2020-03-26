@@ -12,13 +12,13 @@ namespace AccessFunctions
 {
     public static class ProcosysGroupSubscriber
     {
-        private const string Cron = "0 2 * * *"; //Every night at 2am
+        private const string Cron = "* * * * *"; //Every night at 2am
         private const string Resource = "groups";
         private const string ChangeType = "updated";
 
         private static ILogger _logger;
 
-        [Disable]
+        //[Disable]
         [FunctionName("ProcosysGroupSubscriber")]
         [SuppressMessage("Redundancy", "RCS1163:Unused parameter.")]
         public static async Task Run([TimerTrigger(Cron)]TimerInfo myTimer,
