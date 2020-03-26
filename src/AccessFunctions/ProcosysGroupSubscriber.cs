@@ -12,7 +12,7 @@ namespace AccessFunctions
 {
     public static class ProcosysGroupSubscriber
     {
-        private const string Cron = "0 2 * * *"; //Every night at 2am
+        private const string Cron = "* * * * *"; //Every night at 2am
         private const string Resource = "groups";
         private const string ChangeType = "updated";
 
