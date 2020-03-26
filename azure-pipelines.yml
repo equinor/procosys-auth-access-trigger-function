@@ -151,4 +151,30 @@ stages:
       containerRegistry: '${{ variables.containerRegistry }}'
       keyVaultUrl: 'pcs-auth-prod-kv'
       ServiceBusQueueName: 'pcs-auth-access-qp-queue'
-      GroupSubscriberDisabled: true
+      GroupSubscriberDisabled: false
+
+ - stage: prod
+   displayName: 'prod'
+   dependsOn: 'common'
+   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+   variables:
+    envName: 'prod'
+    serviceConnection: '${{ variables.prodServiceConnection }}'
+    envGroupName: '$(globalPrefix)-$(fullAppName)-${{ variables.envName }}'
+    envRg: 'pcs-auth-access-prod-rg'
+  
+   jobs:
+   - template: /templates/pipelines/auth-access-function-release.yml@templates
+     parameters:
+      dependsOn: ''
+      deploymentName: 'publish'
+      serviceConnection: ${{ variables.serviceConnection }}
+      functionApp: '$(globalPrefix)-$(fullAppName)-prod-func'
+      envGroup: '${{ variables.envGroupName }}'
+      envRg: '${{ variables.envRg }}'
+      env: '${{ variables.envName }}'
+      repository: ${{ variables.repositoryName }}
+      containerRegistry: '${{ variables.containerRegistry }}'
+      keyVaultUrl: 'pcs-auth-prod-kv'
+      ServiceBusQueueName: 'pcs-auth-access-prod-queue'
+      GroupSubscriberDisabled: false
