@@ -9,8 +9,8 @@ resources:
    - repository: self
    - repository: templates
      type: github
-     name: equinor/procosys-preservation-infra #TODO
-     endpoint: 'Preservation - Frontend' #TODO
+     name: equinor/procosys-infra
+     endpoint: 'procosys - github'
 
 # Global variables for the pipeline
 variables:
