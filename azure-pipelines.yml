@@ -53,7 +53,8 @@ stages:
        or
        ( 
          eq(variables['Build.SourceBranch'], 'refs/heads/master'),
-         eq(variables['Build.SourceBranch'], 'refs/heads/dev')
+         eq(variables['Build.SourceBranch'], 'refs/heads/dev'),
+         eq(variables['Build.SourceBranch'], 'refs/heads/Update_to_netCore_3')
        )
      )
    variables:
@@ -78,7 +79,7 @@ stages:
  - stage: dev
    displayName: 'dev'
    dependsOn: 'common'
-   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/Update_to_netCore_3'))
    variables:
     envName: 'dev'
     serviceConnection: '${{ variables.nonProdServiceConnection }}'
