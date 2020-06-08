@@ -26,55 +26,71 @@ namespace AccessFunctions
         {
             _logger = logger;
 
-            double subScriptionTime = double.Parse(GetEnvironmentVariable("SubscriptionTimeToLive"));
+            double subscriptionTime = double.Parse(GetEnvironmentVariable("SubscriptionTimeToLive"));
             var clientState = GetEnvironmentVariable("SubscriptionClientState");
             var notificationUrl = GetEnvironmentVariable("NotificationUrl");
 
             var graphClient = await SetUpGraphClient();
-            var currentSubscriptions = await graphClient.Subscriptions
-                .Request()
-                .GetAsync();
 
-            if (GetSubscriptionToUpdate(notificationUrl, currentSubscriptions) is string updateId)
+            var currentSubscriptions = await graphClient.Subscriptions.Request().GetAsync();
+
+            var subscriptionToUpdateId = GetSubscriptionToUpdate(notificationUrl, currentSubscriptions);
+
+            if (subscriptionToUpdateId != null)
             {
-                await UpdateSubscription(subScriptionTime, graphClient, updateId);
+                await UpdateSubscription(subscriptionTime, graphClient, subscriptionToUpdateId);
             }
             else
             {
-                await CreateSubscription(subScriptionTime, clientState, notificationUrl, graphClient);
+                await CreateSubscription(subscriptionTime, clientState, notificationUrl, graphClient);
             }
         }
 
-        private static async Task CreateSubscription(double subScriptionTime, string clientState, string notificationUrl, IGraphServiceClient graphClient)
+        private static async Task CreateSubscription(double subscriptionTime, string clientState, string notificationUrl, IGraphServiceClient graphClient)
         {
+            var expirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subscriptionTime);
+
             var subscription = new Subscription
             {
                 ChangeType = ChangeType,
                 NotificationUrl = notificationUrl,
                 Resource = Resource,
-                ExpirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subScriptionTime),
+                ExpirationDateTime = expirationDateTime,
                 ClientState = clientState
             };
 
-            var request = graphClient.Subscriptions.Request();
+            _logger.LogInformation($"Creating new Graph subscription with NotificationUrl: {notificationUrl}. Expiration time: {expirationDateTime}");
 
-            _logger.LogInformation($"Subscribing to microsoft graph with with request: {request}");
+            var request = graphClient.Subscriptions.Request();
             await request.AddAsync(subscription);
         }
 
-        private static async Task UpdateSubscription(double subScriptionTime, IGraphServiceClient graphClient, string updateId)
+        private static async Task UpdateSubscription(double subscriptionTime, IGraphServiceClient graphClient, string updateId)
         {
+            var expirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subscriptionTime);
+
             var subscription = new Subscription
             {
-                ExpirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subScriptionTime)
+                ExpirationDateTime = expirationDateTime
             };
-            await graphClient.Subscriptions[updateId]
-                .Request()
-                .UpdateAsync(subscription);
+
+            _logger.LogInformation($"Updating Graph subscription with Id: {updateId}. New expiration time: {expirationDateTime}");
+
+            await graphClient.Subscriptions[updateId].Request().UpdateAsync(subscription);
         }
 
         private static string GetSubscriptionToUpdate(string notificationUrl, IGraphServiceSubscriptionsCollectionPage subscriptions)
-            => subscriptions.Count > 0 && notificationUrl.Equals(subscriptions[0].NotificationUrl) ? subscriptions[0].Id : null;
+        {
+            foreach (var subscription in subscriptions)
+            {
+                if (subscription.NotificationUrl == notificationUrl)
+                {
+                    return subscription.Id;
+                }
+            }
+
+            return null;
+        }
 
         private static async Task<IGraphServiceClient> SetUpGraphClient()
         {
@@ -95,6 +111,7 @@ namespace AccessFunctions
                         requestMessage.Headers.Authorization = new AuthenticationHeaderValue("bearer", accessToken);
                         return Task.FromResult(0);
                     }));
+
             return graphClient;
         }
     }
