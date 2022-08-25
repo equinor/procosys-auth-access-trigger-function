@@ -33,13 +33,13 @@ public static class ProCoSysAuthAccessTrigger
             return new OkObjectResult(valueToken);
         }
 
-        await Task.Run(()=> AddMessagesToQueue(request));
+        await Task.Run(()=> HandleRequest(request));
 
         //Always return accepted, or notifications gets turned off
         return new AcceptedResult();
     }
 
-    private static async void AddMessagesToQueue(HttpRequest request)
+    private static async void HandleRequest(HttpRequest request)
     {
         await InitializeQueueClient();
 
@@ -48,11 +48,11 @@ public static class ProCoSysAuthAccessTrigger
         {
             try
             {
-                await BatchAndSendMessages(notifications);
+                await SendMessagesToServiceBusQueue(notifications);
             }
             catch (Exception e)
             {
-                _logger.LogError($"InitializeQueueClient Failed with exception {e.Message}");
+                _logger.LogError($"SendMessages Failed with exception {e.Message}");
             }
 
         }
@@ -62,18 +62,25 @@ public static class ProCoSysAuthAccessTrigger
         }
     }
 
-    private static async Task BatchAndSendMessages(List<string> notifications)
+    private static async Task SendMessagesToServiceBusQueue(List<string> notifications)
     {
+        /***
+         * group messages into batches, and fail before sending if message exceeds size limit
+         *
+         * Pattern taken from:
+         * https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/servicebus/Azure.Messaging.ServiceBus/MigrationGuide.md
+         */
+
         Queue<ServiceBusMessage> messages = new();
         notifications.ForEach(n => messages.Enqueue(new ServiceBusMessage(n)));
         var messageCount = messages.Count;
+
         while (messages.Count > 0)
         {
             using var messageBatch = await _serviceBusSender.CreateMessageBatchAsync();
-            // add the first message to the batch
+            // add first unsent message to batch
             if (messageBatch.TryAddMessage(messages.Peek()))
             {
-                // dequeue the message from the .NET queue once the message is added to the batch
                 messages.Dequeue();
             }
             else
@@ -85,11 +92,8 @@ public static class ProCoSysAuthAccessTrigger
             // add as many messages as possible to the current batch
             while (messages.Count > 0 && messageBatch.TryAddMessage(messages.Peek()))
             {
-                // dequeue the message from the .NET queue as it has been added to the batch
                 messages.Dequeue();
             }
-
-            // now, send the batch
             await _serviceBusSender.SendMessagesAsync(messageBatch);
         }
     }
