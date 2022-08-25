@@ -1,88 +1,111 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.ServiceBus;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Linq;
-using System.Text;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Azure.Messaging.ServiceBus;
 
-namespace AccessFunctions
+namespace AccessFunctions;
+
+public static class ProCoSysAuthAccessTrigger
 {
-    public static class ProcosysAuthAccessTrigger
+    private static ServiceBusSender _serviceBusSender;
+    private static ILogger _logger;
+
+    [FunctionName("ProCoSysAuthAccessTrigger")]
+    public static async Task<IActionResult> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest request,
+        ILogger logger)
     {
-        private static IQueueClient _queueClient;
-        private static ILogger _logger;
+        _logger = logger;
+        _logger.LogInformation($"Incoming request {request.Query}");
 
-        #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
-        [FunctionName("ProcosysAuthAccessTrigger")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest request,
-            ILogger logger)
+        /***
+         * Microsoft graph sends a probing request with a token to test the endpoint.
+         * If the json request body contains a property "valueToken",
+         * graph expects a 202 response, with the token as the response body. 
+         **/
+        if (AccessTriggerHelper.GetValueToken(request) is { } valueToken)
         {
-            _logger = logger;
-            _logger.LogInformation($"Incomming request {request.Query}");
-
-            /**
-             * Microsoft graph sends a probing request with a token to test the endpoint.
-             * If the json request body contains a property "valueToken",
-             * graph expects a 202 response, with the token as the response body. 
-             **/
-            if (AccessTriggerHelper.GetValueToken(request) is string valueToken)
-            {
-                return new OkObjectResult(valueToken);
-            }
-
-            AddMessagesToQueue(request);
-
-            //Allways return accepted, or notifications gets turned off
-            return new AcceptedResult();
+            return new OkObjectResult(valueToken);
         }
 
-        private static void AddMessagesToQueue(HttpRequest request)
-        {
-            InitializeQueueClient();
+        await Task.Run(()=> AddMessagesToQueue(request));
 
-            var notifications = AccessTriggerHelper.ExtractNotifications(request, _logger);
-            if (notifications.Count > 0)
-            {
-                notifications.ForEach(async notification => await SendMessageAsync(notification));
-            }
-            else
-            {
-                _logger.LogInformation($"The request{request.Query} didn't contain any relevant information");
-            }
-        }
+        //Always return accepted, or notifications gets turned off
+        return new AcceptedResult();
+    }
 
-        private static void InitializeQueueClient()
+    private static async void AddMessagesToQueue(HttpRequest request)
+    {
+        await InitializeQueueClient();
+
+        var notifications = AccessTriggerHelper.ExtractNotifications(request, _logger);
+        if (notifications.Count > 0)
         {
             try
             {
-                var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
-                var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
-                _queueClient = new QueueClient(serviceBusConnectionString, queueName);
-            }catch(Exception e)
+                await BatchAndSendMessages(notifications);
+            }
+            catch (Exception e)
             {
                 _logger.LogError($"InitializeQueueClient Failed with exception {e.Message}");
             }
-        }
 
-        private static async Task SendMessageAsync(string messageBody)
+        }
+        else
         {
-            try
+            _logger.LogInformation($"The request{request.Query} didn't contain any relevant information");
+        }
+    }
+
+    private static async Task BatchAndSendMessages(List<string> notifications)
+    {
+        Queue<ServiceBusMessage> messages = new();
+        notifications.ForEach(n => messages.Enqueue(new ServiceBusMessage(n)));
+        var messageCount = messages.Count;
+        while (messages.Count > 0)
+        {
+            using var messageBatch = await _serviceBusSender.CreateMessageBatchAsync();
+            // add the first message to the batch
+            if (messageBatch.TryAddMessage(messages.Peek()))
             {
-                var message = new Message(Encoding.UTF8.GetBytes(messageBody));
-                _logger.LogInformation($"Sending message: {messageBody}");
-                await _queueClient.SendAsync(message);
+                // dequeue the message from the .NET queue once the message is added to the batch
+                messages.Dequeue();
             }
-            catch (Exception exception)
+            else
             {
-                Console.WriteLine($"{DateTime.Now} :: Exception: {exception.Message}");
-                _logger.LogError($"{DateTime.Now} :: Exception: {exception.Message}");
+                // if the first message can't fit, then it is too large for the batch
+                throw new Exception($"Message {messageCount - messages.Count} is too large and cannot be sent.");
             }
+
+            // add as many messages as possible to the current batch
+            while (messages.Count > 0 && messageBatch.TryAddMessage(messages.Peek()))
+            {
+                // dequeue the message from the .NET queue as it has been added to the batch
+                messages.Dequeue();
+            }
+
+            // now, send the batch
+            await _serviceBusSender.SendMessagesAsync(messageBatch);
+        }
+    }
+
+    private static async Task InitializeQueueClient()
+    {
+        try
+        {
+            var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
+            var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
+            await using var client = new ServiceBusClient(serviceBusConnectionString);
+            _serviceBusSender = client.CreateSender(queueName);
+        }
+        catch (Exception e)
+        {
+            _logger.LogError($"InitializeQueueClient Failed with exception {e.Message}");
         }
     }
 }
-

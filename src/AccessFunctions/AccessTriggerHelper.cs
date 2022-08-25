@@ -12,15 +12,15 @@ namespace AccessFunctions
 {
    public static class AccessTriggerHelper
     {
-        private const string DELETED = "deleted";
-        private const string VALIDATION_TOKEN = "validationToken";
-        private const string CLIENT_STATE = "SubscriptionClientState";
-        private const string VALUE = "value";
+        private const string Deleted = "deleted";
+        private const string ValidationToken = "validationToken";
+        private const string ClientState = "SubscriptionClientState";
+        private const string Value = "value";
 
         public static string GetValueToken(HttpRequest request)
         {
             var token = request.GetQueryParameterDictionary()
-                .FirstOrDefault(q => string.Compare(q.Key, VALIDATION_TOKEN, true) == 0).Value;
+                .FirstOrDefault(q => string.Compare(q.Key, ValidationToken, StringComparison.OrdinalIgnoreCase) == 0).Value;
 
             return !string.IsNullOrWhiteSpace(token) ? token : null;
         }
@@ -28,25 +28,23 @@ namespace AccessFunctions
         public static List<string> ExtractNotifications(HttpRequest req, ILogger logger)
         {
             var notifications = new List<string>();
-            using (var inputStream = new StreamReader(req.Body))
+            using var inputStream = new StreamReader(req.Body);
+            var jsonObject = JObject.Parse(inputStream.ReadToEnd());
+            if (jsonObject != null)
             {
-                JObject jsonObject = JObject.Parse(inputStream.ReadToEnd());
-                if (jsonObject != null)
-                {
-                    // Notifications are sent in a 'value' array. The array might contain multiple notifications for events that are
-                    // registered for the same notification endpoint, and that occur within a short timespan.
-                   notifications.AddRange(GetNotifications(jsonObject,logger));
-                }
-                return notifications;
+                // Notifications are sent in a 'value' array. The array might contain multiple notifications for events that are
+                // registered for the same notification endpoint, and that occur within a short timespan.
+                notifications.AddRange(GetNotifications(jsonObject,logger));
             }
+            return notifications;
         }
 
         private static IEnumerable<string> GetNotifications(JObject jsonObject, ILogger logger)
         {
             foreach (var value in ExtractValues(jsonObject))
             {
-                Notification notification = JsonConvert.DeserializeObject<Notification>(value.ToString());
-                bool isValid = HasValidClientState(notification);
+                var notification = JsonConvert.DeserializeObject<Notification>(value.ToString());
+                var isValid = HasValidClientState(notification);
 
                 if (isValid && notification.ResourceData.Members != null)
                 {
@@ -54,14 +52,14 @@ namespace AccessFunctions
                 }
                 else if (!isValid)
                 {
-                    logger.LogInformation($"ClientState wrong, the clientstate used was: {notification.ClientState}");
+                    logger.LogInformation($"ClientState wrong, the client state used was: {notification.ClientState}");
                 }
             }
         }
 
         private static JArray ExtractValues(JObject jsonObject)
         {
-            return JArray.Parse(jsonObject[VALUE].ToString());
+            return JArray.Parse(jsonObject[Value].ToString());
         }
 
         private static string CreateJsonString(Notification notification)
@@ -70,14 +68,14 @@ namespace AccessFunctions
             {
                 groupId = notification.ResourceData.Id,
                 members = notification.ResourceData.Members
-                  .Select(m => new { id = m.Id, remove = DELETED.Equals(m.Removed) })
+                  .Select(m => new { id = m.Id, remove = Deleted.Equals(m.Removed) })
             }).ToString();
         }
 
         private static bool HasValidClientState(Notification current)
         {
             // Check client state to verify the message is from Microsoft Graph.
-            return current.ClientState.Equals(Environment.GetEnvironmentVariable(CLIENT_STATE));
+            return current.ClientState.Equals(Environment.GetEnvironmentVariable(ClientState));
         }
     }
 }

@@ -5,17 +5,18 @@ using System.IO;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
 using System;
+using AccessFunctions;
 using Newtonsoft.Json.Linq;
 
-namespace AccessFunctions.Tests
+namespace AccessFunctionsTests
 {
     [TestClass]
-    public class ProcosysAuthAccessTriggerTests
+    public class ProCoSysAuthAccessTriggerTests
     {
         private const string MemberOid = "8eed7b20-13f5-41d6-9b82-add95fdd6860";
         private const string GroupOid = "88e74a06-8f81-43c6-9a3d-7428d29f826d";
 
-        public ProcosysAuthAccessTriggerTests()
+        public ProCoSysAuthAccessTriggerTests()
         {
             SetUpEnvironmentalVariables();
         }
@@ -50,7 +51,7 @@ namespace AccessFunctions.Tests
             Assert.AreEqual(0, result.Count);
         }
 
-        private HttpRequest CreateInValidRequest()
+        private static HttpRequest CreateInValidRequest()
         {
             var payload = new { value = new object[] { new
             {
@@ -68,7 +69,7 @@ namespace AccessFunctions.Tests
             return CreateMockRequest(payload).Object;
         }
 
-        private HttpRequest CreateValidRequest()
+        private static HttpRequest CreateValidRequest()
         {
             var payload = new { value = new object[] { new
             {
@@ -108,18 +109,16 @@ namespace AccessFunctions.Tests
 
         private static void SetUpEnvironmentalVariables()
         {
-            using (var file = File.OpenText("test.settings.json"))
+            using var file = File.OpenText("test.settings.json");
+            var reader = new JsonTextReader(file);
+            var jObject = JObject.Load(reader);
+
+            var variables = jObject
+                .GetValue("Values").Children<JProperty>();
+
+            foreach (var variable in variables)
             {
-                var reader = new JsonTextReader(file);
-                var jObject = JObject.Load(reader);
-
-                var variables = jObject
-                    .GetValue("Values").Children<JProperty>();
-
-                foreach (var variable in variables)
-                {
-                    Environment.SetEnvironmentVariable(variable.Name, variable.Value.ToString());
-                }
+                Environment.SetEnvironmentVariable(variable.Name, variable.Value.ToString());
             }
         }
     }
