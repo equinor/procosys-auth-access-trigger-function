@@ -48,11 +48,7 @@ public static class ProCoSysAuthAccessTrigger
 
     private static async void HandleRequest(HttpRequest request)
     {
-        var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
-        var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
-        var client = new ServiceBusClient(serviceBusConnectionString);
-        _serviceBusSender = client.CreateSender(queueName);
-
+        InitializeServiceBusClient();
         var notifications = AccessTriggerHelper.ExtractNotifications(request, _logger);
         if (notifications.Count > 0)
         {
@@ -110,6 +106,10 @@ public static class ProCoSysAuthAccessTrigger
 
     private static void InitializeServiceBusClient()
     {
+        if (_serviceBusClient != null)
+        {
+            return;
+        }
         try
         {
             var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
