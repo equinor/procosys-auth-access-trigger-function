@@ -23,6 +23,7 @@ public static class ProCoSysAuthAccessTrigger
     {
         AppDomain.CurrentDomain.ProcessExit += async (s, e) =>
         {
+            _logger.LogInformation("Disposing client and sender");
             await _serviceBusClient.DisposeAsync();
             await _serviceBusSender.DisposeAsync();
         };
@@ -112,6 +113,7 @@ public static class ProCoSysAuthAccessTrigger
         }
         try
         {
+            _logger.LogInformation("Setting up ServiceBusClient and Sender");
             var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
             var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
             _serviceBusClient = new ServiceBusClient(serviceBusConnectionString);
