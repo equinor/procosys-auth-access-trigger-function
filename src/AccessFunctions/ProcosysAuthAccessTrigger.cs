@@ -41,7 +41,10 @@ public static class ProCoSysAuthAccessTrigger
 
     private static async void HandleRequest(HttpRequest request)
     {
-        await InitializeServiceBusClient();
+        var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
+        var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
+        await using var client = new ServiceBusClient(serviceBusConnectionString);
+        _serviceBusSender = client.CreateSender(queueName);
 
         var notifications = AccessTriggerHelper.ExtractNotifications(request, _logger);
         if (notifications.Count > 0)
@@ -98,13 +101,13 @@ public static class ProCoSysAuthAccessTrigger
         }
     }
 
-    private static async Task InitializeServiceBusClient()
+    private static void InitializeServiceBusClient()
     {
         try
         {
             var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
             var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
-            await using var client = new ServiceBusClient(serviceBusConnectionString);
+            var client = new ServiceBusClient(serviceBusConnectionString);
             _serviceBusSender = client.CreateSender(queueName);
         }
         catch (Exception e)
