@@ -124,7 +124,7 @@ stages:
       repository: ${{ variables.repositoryName }}
       containerRegistry: '${{ variables.containerRegistry }}'
       keyVaultUrl: 'pcs-auth-non-prod-kv'
-      ServiceBusQueueName: 'pcs-auth-access-non-prod-queue'
+      ServiceBusQueueName: 'pcs-auth-access-test-queue'
       GroupSubscriberDisabled: false
 
  - stage: prod
