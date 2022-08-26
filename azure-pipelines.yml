@@ -104,7 +104,7 @@ stages:
  - stage: test
    displayName: 'test'
    dependsOn: 'common'
-   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
    variables:
     envName: 'test'
     serviceConnection: '${{ variables.nonProdServiceConnection }}'
