@@ -41,7 +41,7 @@ public static class ProCoSysAuthAccessTrigger
 
     private static async void HandleRequest(HttpRequest request)
     {
-        await InitializeQueueClient();
+        await InitializeServiceBusClient();
 
         var notifications = AccessTriggerHelper.ExtractNotifications(request, _logger);
         if (notifications.Count > 0)
@@ -98,7 +98,7 @@ public static class ProCoSysAuthAccessTrigger
         }
     }
 
-    private static async Task InitializeQueueClient()
+    private static async Task InitializeServiceBusClient()
     {
         try
         {
@@ -109,7 +109,7 @@ public static class ProCoSysAuthAccessTrigger
         }
         catch (Exception e)
         {
-            _logger.LogError($"InitializeQueueClient Failed with exception {e.Message}");
+            _logger.LogError($"InitializeServiceBusClient Failed with exception {e.Message}");
         }
     }
 }

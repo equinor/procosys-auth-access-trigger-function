@@ -57,10 +57,7 @@ namespace AccessFunctions
             }
         }
 
-        private static JArray ExtractValues(JObject jsonObject)
-        {
-            return JArray.Parse(jsonObject[Value].ToString());
-        }
+        private static JArray ExtractValues(JObject jsonObject) => JArray.Parse(jsonObject[Value].ToString());
 
         private static string CreateJsonString(Notification notification)
         {
@@ -72,10 +69,8 @@ namespace AccessFunctions
             }).ToString();
         }
 
-        private static bool HasValidClientState(Notification current)
-        {
+        private static bool HasValidClientState(Notification current) =>
             // Check client state to verify the message is from Microsoft Graph.
-            return current.ClientState.Equals(Environment.GetEnvironmentVariable(ClientState));
-        }
+            current.ClientState.Equals(Environment.GetEnvironmentVariable(ClientState));
     }
 }
