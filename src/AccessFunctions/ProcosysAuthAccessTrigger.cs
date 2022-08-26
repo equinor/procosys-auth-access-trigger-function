@@ -13,6 +13,7 @@ namespace AccessFunctions;
 public static class ProCoSysAuthAccessTrigger
 {
     private static ServiceBusSender _serviceBusSender;
+    private static ServiceBusClient _serviceBusClient;
     private static ILogger _logger;
 
     [FunctionName("ProCoSysAuthAccessTrigger")]
@@ -20,6 +21,12 @@ public static class ProCoSysAuthAccessTrigger
         [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest request,
         ILogger logger)
     {
+        AppDomain.CurrentDomain.ProcessExit += async (s, e) =>
+        {
+            await _serviceBusClient.DisposeAsync();
+            await _serviceBusSender.DisposeAsync();
+        };
+
         _logger = logger;
         _logger.LogInformation($"Incoming request {request.Query}");
 
@@ -43,7 +50,7 @@ public static class ProCoSysAuthAccessTrigger
     {
         var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
         var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
-        await using var client = new ServiceBusClient(serviceBusConnectionString);
+        var client = new ServiceBusClient(serviceBusConnectionString);
         _serviceBusSender = client.CreateSender(queueName);
 
         var notifications = AccessTriggerHelper.ExtractNotifications(request, _logger);
@@ -107,8 +114,8 @@ public static class ProCoSysAuthAccessTrigger
         {
             var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
             var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
-            var client = new ServiceBusClient(serviceBusConnectionString);
-            _serviceBusSender = client.CreateSender(queueName);
+            _serviceBusClient = new ServiceBusClient(serviceBusConnectionString);
+            _serviceBusSender = _serviceBusClient.CreateSender(queueName);
         }
         catch (Exception e)
         {
