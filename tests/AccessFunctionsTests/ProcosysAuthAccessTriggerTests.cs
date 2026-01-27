@@ -168,6 +168,6 @@ namespace AccessFunctionsTests
 
         public override Stream Body { get; set; }
 
-        public override HttpCookies Cookies => throw new NotImplementedException();
+        public override HttpCookies Cookies => new Mock<HttpCookies>().Object;
     }
 }
