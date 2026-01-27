@@ -8,21 +8,18 @@ using Microsoft.Graph;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWorkerDefaults()
-    .ConfigureServices((context, services) =>
+    .ConfigureServices((_, services) =>
     {
         services.AddApplicationInsightsTelemetryWorkerService();
         services.ConfigureFunctionsApplicationInsights();
 
-        // Register ServiceBusClient as singleton
         services.AddSingleton(sp =>
         {
             var configuration = sp.GetRequiredService<IConfiguration>();
-            var connectionString = configuration["ServiceBusConnectionString"] 
-                ?? configuration["AzureWebJobsServiceBus"];
+            var connectionString = configuration["ServiceBusConnectionString"];
             return new ServiceBusClient(connectionString);
         });
 
-        // Register GraphServiceClient as singleton
         services.AddSingleton(sp =>
         {
             var configuration = sp.GetRequiredService<IConfiguration>();
