@@ -1,5 +1,6 @@
 ﻿using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.WebUtilities;
 using System;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -19,9 +20,20 @@ namespace AccessFunctions
 
         public static string GetValueToken(HttpRequestData request)
         {
-            var queryParams = System.Web.HttpUtility.ParseQueryString(request.Url.Query);
-            var token = queryParams[ValidationToken];
-            return !string.IsNullOrWhiteSpace(token) ? token : null;
+            var queryParams = QueryHelpers.ParseQuery(request.Url.Query);
+
+            if (!queryParams.TryGetValue(ValidationToken, out var values))
+            {
+                return null;
+            }
+            
+            var token = values.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return null;
+            }
+            
+            return token;
         }
 
         public static async Task<List<string>> ExtractNotifications(HttpRequestData req, ILogger logger)
