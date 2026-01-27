@@ -5,7 +5,7 @@ RUN cd /src/dotnet-function-app && \
     mkdir -p /home/site/wwwroot && \
     dotnet publish src/AccessFunctions/AccessFunctions.csproj --output /home/site/wwwroot
 
-FROM mcr.microsoft.com/azure-functions/dotnet:4-dotnet8.0
+FROM mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated8.0
 ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
     AzureFunctionsJobHost__Logging__Console__IsEnabled=true
 
