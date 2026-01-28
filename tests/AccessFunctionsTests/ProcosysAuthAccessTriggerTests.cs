@@ -1,12 +1,16 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Microsoft.AspNetCore.Http;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Azure.Functions.Worker;
 using Moq;
 using System.IO;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using AccessFunctions;
-using Newtonsoft.Json.Linq;
+using System.Threading.Tasks;
+using System.Net;
 
 namespace AccessFunctionsTests
 {
@@ -22,14 +26,14 @@ namespace AccessFunctionsTests
         }
 
         [TestMethod]
-        public void ExtractJsonNotifications_ParsesCorrectly_WhenValidRequest()
+        public async Task ExtractJsonNotifications_ParsesCorrectly_WhenValidRequest()
         {
             //Arrange
             var req = CreateValidRequest();
             var logger = new Mock<ILogger>();
 
             //Act
-            var result = AccessTriggerHelper.ExtractNotifications(req, logger.Object);
+            var result = await AccessTriggerHelper.ExtractNotifications(req, logger.Object);
 
             //Assert
             Assert.AreEqual(1, result.Count);
@@ -38,20 +42,20 @@ namespace AccessFunctionsTests
         }
 
         [TestMethod]
-        public void ExtractJsonNotifications_Fails_WhenInvalidValidClientState()
+        public async Task ExtractJsonNotifications_Fails_WhenInvalidValidClientState()
         {
             //Arrange
             var req = CreateInValidRequest();
             var logger = new Mock<ILogger>();
 
             //Act
-            var result = AccessTriggerHelper.ExtractNotifications(req, logger.Object);
+            var result = await AccessTriggerHelper.ExtractNotifications(req, logger.Object);
 
             //Assert
             Assert.AreEqual(0, result.Count);
         }
 
-        private static HttpRequest CreateInValidRequest()
+        private static HttpRequestData CreateInValidRequest()
         {
             var payload = new { value = new object[] { new
             {
@@ -66,10 +70,10 @@ namespace AccessFunctionsTests
                     }}
                 }
             }}};
-            return CreateMockRequest(payload).Object;
+            return CreateMockRequest(payload);
         }
 
-        private static HttpRequest CreateValidRequest()
+        private static HttpRequestData CreateValidRequest()
         {
             var payload = new { value = new object[] { new
             {
@@ -84,42 +88,86 @@ namespace AccessFunctionsTests
                     }}
                 }
             }}};
-            return CreateMockRequest(payload).Object;
+            return CreateMockRequest(payload);
         }
 
-        private static Mock<HttpRequest> CreateMockRequest(object body)
+        private static HttpRequestData CreateMockRequest(object body)
         {
             var ms = new MemoryStream();
             var sw = new StreamWriter(ms);
 
-            // JsonConvert.PopulateObject("Members", "members@delta");
-            var json = JsonConvert.SerializeObject(body);
+            var json = JsonSerializer.Serialize(body);
 
-            //@is not allowed in propertyname
             json = json.Replace("Members", "members@delta");
             sw.Write(json);
             sw.Flush();
 
             ms.Position = 0;
 
-            var mockRequest = new Mock<HttpRequest>();
-            mockRequest.Setup(x => x.Body).Returns(ms);
-            return mockRequest;
+            var context = new Mock<FunctionContext>();
+            var request = new TestHttpRequestData(context.Object, new Uri("https://test.com"), ms);
+            return request;
         }
 
         private static void SetUpEnvironmentalVariables()
         {
             using var file = File.OpenText("test.settings.json");
-            var reader = new JsonTextReader(file);
-            var jObject = JObject.Load(reader);
+            var jsonContent = file.ReadToEnd();
+            var jsonObject = JsonNode.Parse(jsonContent);
 
-            var variables = jObject
-                .GetValue("Values").Children<JProperty>();
+            var variables = jsonObject["Values"].AsObject();
 
             foreach (var variable in variables)
             {
-                Environment.SetEnvironmentVariable(variable.Name, variable.Value.ToString());
+                Environment.SetEnvironmentVariable(variable.Key, variable.Value.ToString());
             }
         }
+    }
+
+    public class TestHttpRequestData : HttpRequestData
+    {
+        private readonly Stream _body;
+
+        public TestHttpRequestData(FunctionContext functionContext, Uri url, Stream body) 
+            : base(functionContext)
+        {
+            Url = url;
+            _body = body;
+        }
+
+        public override Stream Body => _body;
+
+        public override HttpHeadersCollection Headers => new HttpHeadersCollection();
+
+        public override IReadOnlyCollection<IHttpCookie> Cookies => new List<IHttpCookie>();
+
+        public override Uri Url { get; }
+
+        public override IEnumerable<System.Security.Claims.ClaimsIdentity> Identities => new List<System.Security.Claims.ClaimsIdentity>();
+
+        public override string Method => "POST";
+
+        public override HttpResponseData CreateResponse()
+        {
+            return new TestHttpResponseData(FunctionContext, HttpStatusCode.OK);
+        }
+    }
+
+    public class TestHttpResponseData : HttpResponseData
+    {
+        public TestHttpResponseData(FunctionContext functionContext, HttpStatusCode statusCode) 
+            : base(functionContext)
+        {
+            StatusCode = statusCode;
+            Body = new MemoryStream();
+        }
+
+        public override HttpStatusCode StatusCode { get; set; }
+
+        public override HttpHeadersCollection Headers { get; set; } = new HttpHeadersCollection();
+
+        public override Stream Body { get; set; }
+
+        public override HttpCookies Cookies => new Mock<HttpCookies>().Object;
     }
 }

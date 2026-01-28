@@ -1,12 +1,13 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.Azure.WebJobs.Extensions.Http;
+﻿using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.WebUtilities;
 using System;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AccessFunctions
 {
@@ -17,33 +18,51 @@ namespace AccessFunctions
         private const string ClientState = "SubscriptionClientState";
         private const string Value = "value";
 
-        public static string GetValueToken(HttpRequest request)
+        public static string GetValueToken(HttpRequestData request)
         {
-            var token = request.GetQueryParameterDictionary()
-                .FirstOrDefault(q => string.Compare(q.Key, ValidationToken, StringComparison.OrdinalIgnoreCase) == 0).Value;
+            var queryParams = QueryHelpers.ParseQuery(request.Url.Query);
 
-            return !string.IsNullOrWhiteSpace(token) ? token : null;
+            if (!queryParams.TryGetValue(ValidationToken, out var values))
+            {
+                return null;
+            }
+            
+            var token = values.FirstOrDefault();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return null;
+            }
+            
+            return token;
         }
 
-        public static List<string> ExtractNotifications(HttpRequest req, ILogger logger)
+        public static async Task<List<string>> ExtractNotifications(HttpRequestData req, ILogger logger)
         {
             var notifications = new List<string>();
             using var inputStream = new StreamReader(req.Body);
-            var jsonObject = JObject.Parse(inputStream.ReadToEnd());
+            var jsonContent = await inputStream.ReadToEndAsync();
+            var jsonObject = JsonNode.Parse(jsonContent);
+            
             if (jsonObject != null)
             {
                 // Notifications are sent in a 'value' array. The array might contain multiple notifications for events that are
                 // registered for the same notification endpoint, and that occur within a short timespan.
-                notifications.AddRange(GetNotifications(jsonObject,logger));
+                notifications.AddRange(GetNotifications(jsonObject, logger));
             }
             return notifications;
         }
 
-        private static IEnumerable<string> GetNotifications(JObject jsonObject, ILogger logger)
+        private static IEnumerable<string> GetNotifications(JsonNode jsonObject, ILogger logger)
         {
-            foreach (var value in ExtractValues(jsonObject))
+            var valueArray = jsonObject[Value]?.AsArray();
+            if (valueArray == null)
             {
-                var notification = JsonConvert.DeserializeObject<Notification>(value.ToString());
+                yield break;
+            }
+
+            foreach (var value in valueArray)
+            {
+                var notification = JsonSerializer.Deserialize<Notification>(value.ToJsonString());
                 var isValid = HasValidClientState(notification);
 
                 if (isValid && notification.ResourceData.Members != null)
@@ -52,21 +71,21 @@ namespace AccessFunctions
                 }
                 else if (!isValid)
                 {
-                    logger.LogInformation($"ClientState wrong, the client state used was: {notification.ClientState}");
+                    logger.LogInformation("ClientState wrong, the client state used was: {ClientState}", notification.ClientState);
                 }
             }
         }
 
-        private static JArray ExtractValues(JObject jsonObject) => JArray.Parse(jsonObject[Value].ToString());
-
         private static string CreateJsonString(Notification notification)
         {
-            return JObject.FromObject(new
+            var result = new
             {
                 groupId = notification.ResourceData.Id,
                 members = notification.ResourceData.Members
                   .Select(m => new { id = m.Id, remove = Deleted.Equals(m.Removed) })
-            }).ToString();
+            };
+            
+            return JsonSerializer.Serialize(result);
         }
 
         private static bool HasValidClientState(Notification current) =>

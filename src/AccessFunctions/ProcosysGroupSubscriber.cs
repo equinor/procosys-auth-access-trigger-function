@@ -1,35 +1,29 @@
-using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
-using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using System;
-using System.Net.Http.Headers;
-using System.Threading.Tasks;
-using static System.Environment;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AccessFunctions;
 
-public static class ProCoSysGroupSubscriber
+public class ProCoSysGroupSubscriber(
+    ILogger<ProCoSysGroupSubscriber> logger,
+    GraphServiceClient graphClient,
+    IConfiguration configuration)
 {
     private const string Cron = "0 2 * * *"; //Every night at 2am
     private const string Resource = "groups";
     private const string ChangeType = "updated";
 
-    private static ILogger _logger;
-
     //[Disable]
-    [FunctionName("ProCoSysGroupSubscriber")]
-    public static async Task Run([TimerTrigger(Cron)] TimerInfo myTimer,
-        ILogger logger)
+    [Function("ProCoSysGroupSubscriber")]
+    public async Task Run([TimerTrigger(Cron)] TimerInfo timer)
     {
-        _logger = logger;
-
-        var subscriptionTime = double.Parse(GetEnvironmentVariable("SubscriptionTimeToLive") ?? "4230"); //FallbackValue 
-        var clientState = GetEnvironmentVariable("SubscriptionClientState");
-        var notificationUrl = GetEnvironmentVariable("NotificationUrl");
-
-        var graphClient = await SetUpGraphClient();
+        var subscriptionTime = double.Parse(configuration["SubscriptionTimeToLive"] ?? "4230"); //FallbackValue 
+        var clientState = configuration["SubscriptionClientState"];
+        var notificationUrl = configuration["NotificationUrl"];
 
         var currentSubscriptions = await graphClient.Subscriptions.Request().GetAsync();
 
@@ -37,15 +31,15 @@ public static class ProCoSysGroupSubscriber
 
         if (subscriptionToUpdateId != null)
         {
-            await UpdateSubscription(subscriptionTime, graphClient, subscriptionToUpdateId);
+            await UpdateSubscription(subscriptionTime, subscriptionToUpdateId);
         }
         else
         {
-            await CreateSubscription(subscriptionTime, clientState, notificationUrl, graphClient);
+            await CreateSubscription(subscriptionTime, clientState, notificationUrl);
         }
     }
 
-    private static async Task CreateSubscription(double subscriptionTime, string clientState, string notificationUrl, GraphServiceClient graphClient)
+    private async Task CreateSubscription(double subscriptionTime, string clientState, string notificationUrl)
     {
         var expirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subscriptionTime);
 
@@ -58,13 +52,13 @@ public static class ProCoSysGroupSubscriber
             ClientState = clientState
         };
 
-        _logger.LogInformation($"Creating new Graph subscription with NotificationUrl: {notificationUrl}. Expiration time: {expirationDateTime}");
+        logger.LogInformation("Creating new Graph subscription with NotificationUrl: {NotificationUrl}. Expiration time: {ExpirationDateTime}", notificationUrl, expirationDateTime);
 
         var request = graphClient.Subscriptions.Request();
         await request.AddAsync(subscription);
     }
 
-    private static async Task UpdateSubscription(double subscriptionTime, GraphServiceClient graphClient, string updateId)
+    private async Task UpdateSubscription(double subscriptionTime, string updateId)
     {
         var expirationDateTime = DateTimeOffset.UtcNow.AddMinutes(subscriptionTime);
 
@@ -73,7 +67,7 @@ public static class ProCoSysGroupSubscriber
             ExpirationDateTime = expirationDateTime
         };
 
-        _logger.LogInformation($"Updating Graph subscription with Id: {updateId}. New expiration time: {expirationDateTime}");
+        logger.LogInformation("Updating Graph subscription with Id: {SubscriptionId}. New expiration time: {ExpirationDateTime}", updateId, expirationDateTime);
 
         await graphClient.Subscriptions[updateId].Request().UpdateAsync(subscription);
     }
@@ -83,28 +77,5 @@ public static class ProCoSysGroupSubscriber
         return subscriptions.Where(subscription => subscription.NotificationUrl == notificationUrl)
             .Select(subscription => subscription.Id)
             .FirstOrDefault();
-    }
-
-    private static async Task<GraphServiceClient> SetUpGraphClient()
-    {
-        var authority = GetEnvironmentVariable("AzureAuthority");
-        var graphUrl = GetEnvironmentVariable("GraphUrl");
-        var clientId = GetEnvironmentVariable("AzureClientId");
-        var clientSecret = GetEnvironmentVariable("AzureClientSecret");
-        var authContext = new AuthenticationContext(authority);
-
-        var clientCred = new ClientCredential(clientId, clientSecret);
-        var authenticationResult = await authContext.AcquireTokenAsync(graphUrl, clientCred);
-        var accessToken = authenticationResult.AccessToken;
-
-        var graphClient = new GraphServiceClient(
-            new DelegateAuthenticationProvider(
-                requestMessage =>
-                {
-                    requestMessage.Headers.Authorization = new AuthenticationHeaderValue("bearer", accessToken);
-                    return Task.FromResult(0);
-                }));
-
-        return graphClient;
     }
 }
