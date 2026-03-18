@@ -80,19 +80,25 @@ namespace AccessFunctionsTests
         {
             var payload = new
             {
-                value = new object[] { new
-            {
-                changetype = "updated",
-                clientState  =  Environment.GetEnvironmentVariable("SubscriptionClientState"),
-                resourceData = new
+                value = new object[]
                 {
-                    id =  GroupOid,
-                    Members = new object[] { new
+                    new
                     {
-                        id = MemberOid
-                    }}
+                        changetype = "updated",
+                        clientState  =  Environment.GetEnvironmentVariable("SubscriptionClientState"),
+                        resourceData = new
+                        {
+                            id =  GroupOid,
+                            Members = new object[]
+                            {
+                                new
+                                {
+                                    id = MemberOid
+                                }
+                            }
+                        }
+                    }
                 }
-            }}
             };
             return CreateMockRequest(payload);
         }
