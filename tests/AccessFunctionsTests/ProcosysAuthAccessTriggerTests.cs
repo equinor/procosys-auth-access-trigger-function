@@ -59,8 +59,8 @@ namespace AccessFunctionsTests
         {
             var payload = new
             {
-                value = new object[] 
-                { 
+                value = new object[]
+                {
                     new
                     {
                         changetype = "updated",
@@ -68,7 +68,7 @@ namespace AccessFunctionsTests
                         resourceData = new
                         {
                             id =  GroupOid,
-                            Members = new object[] 
+                            Members = new object[]
                             {
                                 new
                                 {
