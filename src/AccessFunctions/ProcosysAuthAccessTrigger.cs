@@ -1,35 +1,25 @@
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading.Tasks;
 using Azure.Messaging.ServiceBus;
 
 namespace AccessFunctions;
 
-public static class ProCoSysAuthAccessTrigger
+public class ProCoSysAuthAccessTrigger(
+    ILogger<ProCoSysAuthAccessTrigger> logger,
+    ServiceBusClient serviceBusClient,
+    IConfiguration configuration)
 {
-    private static ServiceBusSender _serviceBusSender;
-    private static ServiceBusClient _serviceBusClient;
-    private static ILogger _logger;
-
-    [FunctionName("ProCoSysAuthAccessTrigger")]
-    public static async Task<IActionResult> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequest request,
-        ILogger logger)
+    [Function("ProCoSysAuthAccessTrigger")]
+    public async Task<HttpResponseData> Run(
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = null)] HttpRequestData request)
     {
-        AppDomain.CurrentDomain.ProcessExit += async (s, e) =>
-        {
-            _logger.LogInformation("Disposing client and sender");
-            await _serviceBusClient.DisposeAsync();
-            await _serviceBusSender.DisposeAsync();
-        };
-
-        _logger = logger;
-        _logger.LogInformation($"Incoming request {request.Query}");
+        logger.LogInformation("Incoming request to {Url}", request.Url);
 
         /***
          * Microsoft graph sends a probing request with a token to test the endpoint.
@@ -38,19 +28,20 @@ public static class ProCoSysAuthAccessTrigger
          **/
         if (AccessTriggerHelper.GetValueToken(request) is { } valueToken)
         {
-            return new OkObjectResult(valueToken);
+            var okResponse = request.CreateResponse(HttpStatusCode.OK);
+            await okResponse.WriteStringAsync(valueToken);
+            return okResponse;
         }
 
-        await Task.Run(()=> HandleRequest(request));
+        await HandleRequest(request);
 
         //Always return accepted, or notifications gets turned off
-        return new AcceptedResult();
+        return request.CreateResponse(HttpStatusCode.Accepted);
     }
 
-    private static async void HandleRequest(HttpRequest request)
+    private async Task HandleRequest(HttpRequestData request)
     {
-        InitializeServiceBusClient();
-        var notifications = AccessTriggerHelper.ExtractNotifications(request, _logger);
+        var notifications = await AccessTriggerHelper.ExtractNotifications(request, logger);
         if (notifications.Count > 0)
         {
             try
@@ -59,17 +50,16 @@ public static class ProCoSysAuthAccessTrigger
             }
             catch (Exception e)
             {
-                _logger.LogError($"SendMessages Failed with exception {e.Message}");
+                logger.LogError(e, "SendMessages Failed");
             }
-
         }
         else
         {
-            _logger.LogInformation($"The request{request.Query} didn't contain any relevant information");
+            logger.LogInformation("The request to {Url} didn't contain any relevant information", request.Url);
         }
     }
 
-    private static async Task SendMessagesToServiceBusQueue(List<string> notifications)
+    private async Task SendMessagesToServiceBusQueue(List<string> notifications)
     {
         /***
          * group messages into batches, and fail before sending if message exceeds size limit
@@ -78,50 +68,42 @@ public static class ProCoSysAuthAccessTrigger
          * https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/servicebus/Azure.Messaging.ServiceBus/MigrationGuide.md
          */
 
-        Queue<ServiceBusMessage> messages = new();
-        notifications.ForEach(n => messages.Enqueue(new ServiceBusMessage(n)));
-        var messageCount = messages.Count;
+        var queueName = configuration["ServiceBusQueueName"];
+        var serviceBusSender = serviceBusClient.CreateSender(queueName);
 
-        while (messages.Count > 0)
-        {
-            using var messageBatch = await _serviceBusSender.CreateMessageBatchAsync();
-            // add first unsent message to batch
-            if (messageBatch.TryAddMessage(messages.Peek()))
-            {
-                messages.Dequeue();
-            }
-            else
-            {
-                // if the first message can't fit, then it is too large for the batch
-                throw new Exception($"Message {messageCount - messages.Count} is too large and cannot be sent.");
-            }
-
-            // add as many messages as possible to the current batch
-            while (messages.Count > 0 && messageBatch.TryAddMessage(messages.Peek()))
-            {
-                messages.Dequeue();
-            }
-            await _serviceBusSender.SendMessagesAsync(messageBatch);
-        }
-    }
-
-    private static void InitializeServiceBusClient()
-    {
-        if (_serviceBusClient != null)
-        {
-            return;
-        }
         try
         {
-            _logger.LogInformation("Setting up ServiceBusClient and Sender");
-            var serviceBusConnectionString = Environment.GetEnvironmentVariable("ServiceBusConnectionString");
-            var queueName = Environment.GetEnvironmentVariable("ServiceBusQueueName");
-            _serviceBusClient = new ServiceBusClient(serviceBusConnectionString);
-            _serviceBusSender = _serviceBusClient.CreateSender(queueName);
+            Queue<ServiceBusMessage> messages = new();
+            notifications.ForEach(n => messages.Enqueue(new ServiceBusMessage(n)));
+            var messageCount = messages.Count;
+
+            while (messages.Count > 0)
+            {
+                using var messageBatch = await serviceBusSender.CreateMessageBatchAsync();
+                // add first unsent message to batch
+                if (messageBatch.TryAddMessage(messages.Peek()))
+                {
+                    messages.Dequeue();
+                }
+                else
+                {
+                    // if the first message can't fit, then it is too large for the batch
+                    throw new Exception($"Message {messageCount - messages.Count} is too large and cannot be sent.");
+                }
+
+                // add as many messages as possible to the current batch
+                while (messages.Count > 0 && messageBatch.TryAddMessage(messages.Peek()))
+                {
+                    messages.Dequeue();
+                }
+                await serviceBusSender.SendMessagesAsync(messageBatch);
+            }
+
+            logger.LogInformation("Successfully sent {MessageCount} messages to queue {QueueName}", messageCount, queueName);
         }
-        catch (Exception e)
+        finally
         {
-            _logger.LogError($"InitializeServiceBusClient Failed with exception {e.Message}");
+            await serviceBusSender.DisposeAsync();
         }
     }
 }

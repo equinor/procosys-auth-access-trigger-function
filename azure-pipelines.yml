@@ -53,7 +53,8 @@ stages:
        or
        ( 
          eq(variables['Build.SourceBranch'], 'refs/heads/master'),
-         eq(variables['Build.SourceBranch'], 'refs/heads/dev')
+         eq(variables['Build.SourceBranch'], 'refs/heads/dev'),
+         eq(variables['Build.Reason'], 'Manual')
        )
      )
    variables:
@@ -78,7 +79,16 @@ stages:
  - stage: dev
    displayName: 'dev'
    dependsOn: 'common'
-   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+   condition: |
+     and
+     (
+       succeeded(),
+       or
+       ( 
+         eq(variables['Build.SourceBranch'], 'refs/heads/dev'),
+         eq(variables['Build.Reason'], 'Manual')
+       )
+     )
    variables:
     envName: 'dev'
     serviceConnection: '${{ variables.nonProdServiceConnection }}'
@@ -104,7 +114,16 @@ stages:
  - stage: test
    displayName: 'test'
    dependsOn: 'common'
-   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/dev'))
+   condition: |
+     and
+     (
+       succeeded(),
+       or
+       ( 
+         eq(variables['Build.SourceBranch'], 'refs/heads/dev'),
+         eq(variables['Build.Reason'], 'Manual')
+       )
+     )
    variables:
     envName: 'test'
     serviceConnection: '${{ variables.nonProdServiceConnection }}'
