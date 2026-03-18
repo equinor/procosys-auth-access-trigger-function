@@ -1,17 +1,17 @@
-﻿using Microsoft.Azure.Functions.Worker.Http;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.WebUtilities;
-using System;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Logging;
 
 namespace AccessFunctions
 {
-   public static class AccessTriggerHelper
+    public static class AccessTriggerHelper
     {
         private const string Deleted = "deleted";
         private const string ValidationToken = "validationToken";
@@ -26,13 +26,13 @@ namespace AccessFunctions
             {
                 return null;
             }
-            
+
             var token = values.FirstOrDefault();
             if (string.IsNullOrWhiteSpace(token))
             {
                 return null;
             }
-            
+
             return token;
         }
 
@@ -42,7 +42,7 @@ namespace AccessFunctions
             using var inputStream = new StreamReader(req.Body);
             var jsonContent = await inputStream.ReadToEndAsync();
             var jsonObject = JsonNode.Parse(jsonContent);
-            
+
             if (jsonObject != null)
             {
                 // Notifications are sent in a 'value' array. The array might contain multiple notifications for events that are
@@ -84,7 +84,7 @@ namespace AccessFunctions
                 members = notification.ResourceData.Members
                   .Select(m => new { id = m.Id, remove = Deleted.Equals(m.Removed) })
             };
-            
+
             return JsonSerializer.Serialize(result);
         }
 

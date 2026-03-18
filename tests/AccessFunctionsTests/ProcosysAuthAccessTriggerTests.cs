@@ -1,16 +1,16 @@
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Microsoft.Azure.Functions.Worker.Http;
-using Microsoft.Azure.Functions.Worker;
-using Moq;
-using System.IO;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using AccessFunctions;
-using System.Threading.Tasks;
+using System.IO;
 using System.Net;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Threading.Tasks;
+using AccessFunctions;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
 
 namespace AccessFunctionsTests
 {
@@ -57,37 +57,55 @@ namespace AccessFunctionsTests
 
         private static HttpRequestData CreateInValidRequest()
         {
-            var payload = new { value = new object[] { new
+            var payload = new
             {
-                changetype = "updated",
-                clientState  = "someInvalidState",
-                resourceData = new
+                value = new object[]
                 {
-                    id =  GroupOid,
-                    Members = new object[] { new
+                    new
                     {
-                        id = MemberOid
-                    }}
+                        changetype = "updated",
+                        clientState  = "someInvalidState",
+                        resourceData = new
+                        {
+                            id =  GroupOid,
+                            Members = new object[]
+                            {
+                                new
+                                {
+                                    id = MemberOid
+                                }
+                            }
+                        }
+                    }
                 }
-            }}};
+            };
             return CreateMockRequest(payload);
         }
 
         private static HttpRequestData CreateValidRequest()
         {
-            var payload = new { value = new object[] { new
+            var payload = new
             {
-                changetype = "updated",
-                clientState  =  Environment.GetEnvironmentVariable("SubscriptionClientState"),
-                resourceData = new
+                value = new object[]
                 {
-                    id =  GroupOid,
-                    Members = new object[] { new
+                    new
                     {
-                        id = MemberOid
-                    }}
+                        changetype = "updated",
+                        clientState  =  Environment.GetEnvironmentVariable("SubscriptionClientState"),
+                        resourceData = new
+                        {
+                            id =  GroupOid,
+                            Members = new object[]
+                            {
+                                new
+                                {
+                                    id = MemberOid
+                                }
+                            }
+                        }
+                    }
                 }
-            }}};
+            };
             return CreateMockRequest(payload);
         }
 
@@ -128,7 +146,7 @@ namespace AccessFunctionsTests
     {
         private readonly Stream _body;
 
-        public TestHttpRequestData(FunctionContext functionContext, Uri url, Stream body) 
+        public TestHttpRequestData(FunctionContext functionContext, Uri url, Stream body)
             : base(functionContext)
         {
             Url = url;
@@ -155,7 +173,7 @@ namespace AccessFunctionsTests
 
     public class TestHttpResponseData : HttpResponseData
     {
-        public TestHttpResponseData(FunctionContext functionContext, HttpStatusCode statusCode) 
+        public TestHttpResponseData(FunctionContext functionContext, HttpStatusCode statusCode)
             : base(functionContext)
         {
             StatusCode = statusCode;
