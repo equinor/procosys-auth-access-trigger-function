@@ -1,10 +1,10 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Graph;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace AccessFunctions;
 
@@ -19,7 +19,7 @@ public class ProCoSysGroupSubscriber(
 
     //[Disable]
     [Function("ProCoSysGroupSubscriber")]
-    public async Task Run([TimerTrigger(Cron)] TimerInfo timer)
+    public async Task Run([TimerTrigger(Cron)] TimerInfo _)
     {
         var subscriptionTime = double.Parse(configuration["SubscriptionTimeToLive"] ?? "4230"); //FallbackValue 
         var clientState = configuration["SubscriptionClientState"];
