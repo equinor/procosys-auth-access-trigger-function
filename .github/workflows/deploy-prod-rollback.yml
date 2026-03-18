@@ -1,0 +1,56 @@
+name: 🚀🏭 Deploy rollback to prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch name, commit SHA, or relative ref (e.g., HEAD~1 AKA previous commit)'
+        required: true
+        default: 'HEAD~1'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Rollback prod
+    runs-on: ubuntu-latest
+    environment: prod-rollback
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Get commit SHA
+        id: commit
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name procosys
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t procosys.azurecr.io/aad-sync/functions:${{ steps.commit.outputs.sha }} \
+            -f src/AccessFunctions/Dockerfile \
+            .
+
+      - name: Push Docker image
+        run: docker push procosys.azurecr.io/aad-sync/functions:${{ steps.commit.outputs.sha }}
+
+      - name: Set container image
+        run: |
+          az functionapp config container set \
+            --resource-group pcs-auth-access-prod-rg \
+            --name pcs-auth-access-prod-func \
+            --registry-server https://procosys.azurecr.io \
+            --image procosys.azurecr.io/aad-sync/functions:${{ steps.commit.outputs.sha }}
