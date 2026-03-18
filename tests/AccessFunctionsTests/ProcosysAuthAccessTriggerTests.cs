@@ -59,19 +59,25 @@ namespace AccessFunctionsTests
         {
             var payload = new
             {
-                value = new object[] { new
-            {
-                changetype = "updated",
-                clientState  = "someInvalidState",
-                resourceData = new
-                {
-                    id =  GroupOid,
-                    Members = new object[] { new
+                value = new object[] 
+                { 
+                    new
                     {
-                        id = MemberOid
-                    }}
+                        changetype = "updated",
+                        clientState  = "someInvalidState",
+                        resourceData = new
+                        {
+                            id =  GroupOid,
+                            Members = new object[] 
+                            {
+                                new
+                                {
+                                    id = MemberOid
+                                }
+                            }
+                        }
+                    }
                 }
-            }}
             };
             return CreateMockRequest(payload);
         }
