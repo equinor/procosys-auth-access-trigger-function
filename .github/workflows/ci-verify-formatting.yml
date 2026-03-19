@@ -1,0 +1,26 @@
+name: ✏️ Verify formatting
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format-check:
+    name: Verify formatting
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [
+          src/AccessFunctions,
+          tests/AccessFunctionsTests,
+        ]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify ${{ matrix.project }} formatting
+        run: dotnet format ./${{ matrix.project }} --verify-no-changes

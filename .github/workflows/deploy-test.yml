@@ -1,0 +1,51 @@
+name: 🚀🧪 Deploy to test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to test
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name procosys
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t procosys.azurecr.io/aad-sync/functions:${{ steps.sha.outputs.short }} \
+            -f src/AccessFunctions/Dockerfile \
+            .
+
+      - name: Push Docker image
+        run: docker push procosys.azurecr.io/aad-sync/functions:${{ steps.sha.outputs.short }}
+
+      - name: Set container image
+        run: |
+          az functionapp config container set \
+            --resource-group pcs-auth-access-non-prod-rg \
+            --name pcs-auth-access-test-func \
+            --registry-server https://procosys.azurecr.io \
+            --image procosys.azurecr.io/aad-sync/functions:${{ steps.sha.outputs.short }}
